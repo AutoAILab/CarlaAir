@@ -14,7 +14,7 @@
 
 <div align="center">
   <a href="https://huggingface.co/papers/2603.28032"><img src="https://img.shields.io/badge/%F0%9F%8F%86%20HF%20Daily%20Papers-%231%20Paper%20of%20the%20Day-FFD700" alt="#1 Paper of the Day"/></a>
-  <a href="https://arxiv.org/abs/2603.28032"><img src="https://img.shields.io/badge/Paper-PDF-red" alt="Paper PDF"/></a>
+  <a href="docs/pdf/CarlaAir.pdf"><img src="https://img.shields.io/badge/Paper-PDF-red" alt="Paper PDF"/></a>
   <a href="https://arxiv.org/abs/2603.28032"><img src="https://img.shields.io/badge/arXiv-2603.28032-b31b1b?logo=arxiv&logoColor=white" alt="arXiv"/></a>
   <a href="https://github.com/louiszengCN/CarlaAir/stargazers"><img src="https://img.shields.io/github/stars/louiszengCN/CarlaAir?style=social" alt="GitHub Stars"/></a>
   <a href="https://github.com/louiszengCN/CarlaAir/releases/tag/v0.1.7"><img src="https://img.shields.io/badge/version-v0.1.7-blue" alt="Version"/></a>
@@ -29,7 +29,7 @@
 
 <p align="center">
   <a href="README.md">English</a> | <a href="README_CN.md">简体中文</a> &nbsp;&nbsp;|&nbsp;&nbsp;
-  📄 <a href="https://arxiv.org/abs/2603.28032"><b>Paper</b></a> &nbsp;|&nbsp;
+  📄 <a href="docs/pdf/CarlaAir.pdf"><b>Paper</b></a> &nbsp;|&nbsp;
   🌐 <a href="#"><b>Project Page</b></a> <i>(coming soon)</i> &nbsp;|&nbsp;
   📖 <a href="CarlaAir_Release/guide/Quick-Start.md"><b>Docs</b></a> &nbsp;|&nbsp;
   🎬 <a href="https://youtu.be/a0fZG2dmT1Q"><b>Video</b></a>
@@ -38,7 +38,7 @@
 <p align="center">
   <a href="https://pan.baidu.com/s/1RguWqwKrN-3KEgyKvWiiug?pwd=d5ai"><img src="https://img.shields.io/badge/Baidu%20Pan-Download-2932E1?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBmaWxsPSJ3aGl0ZSIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6Ii8+PC9zdmc+" alt="Baidu Pan"/></a>
   <a href="https://huggingface.co/tianlezeng/CarlaAIr-v0.1.7"><img src="https://img.shields.io/badge/HuggingFace-Download-FFD21E?logo=huggingface&logoColor=black" alt="HuggingFace"/></a>
-  <a href="docs/images/wxg.jpg"><img src="https://img.shields.io/badge/WeChat-Group-07C160?logo=wechat&logoColor=white" alt="WeChat Group"/></a>
+  <a href="docs/images/wxg.jpg?v=20260419"><img src="https://img.shields.io/badge/WeChat-Group-07C160?logo=wechat&logoColor=white" alt="WeChat Group"/></a>
 </p>
 
 ## 📌 Table of Contents
@@ -60,8 +60,9 @@
 
 ## 🔥 News
 
+- **[2026-04-10]** [![Windows Source](https://img.shields.io/badge/Windows-Source%20Branch-0078D6?logo=windows&logoColor=white)](https://github.com/louiszengCN/CarlaAir/tree/windows/v0.1.7-win11-x86_64) [Windows source branch published](https://github.com/louiszengCN/CarlaAir/tree/windows/v0.1.7-win11-x86_64) -- Windows build and runtime support is now available on the dedicated branch
 - **[2026-04-01]** 🏆 $\color{red}{\textbf{\\#1 Paper of the Day}}$ **on [Hugging Face Daily Papers](https://huggingface.co/papers/2603.28032)!**
-- **[2026-03-30]** 📄 Technical report released -- [Read the paper](https://arxiv.org/abs/2603.28032)
+- **[2026-03-30]** 📄 Technical report released -- [Read the paper](docs/pdf/CarlaAir.pdf)
 - **[2026-03]** `v0.1.7` released -- VSync fix, stable traffic, one-click env setup, drone recording toolkit, coordinate docs
 - **[2026-03]** `v0.1.6` released -- Auto traffic spawn, UE4 native Sweep collision, ground clamping
 - **[2026-03]** `v0.1.5` released -- 12-direction collision system, bilingual help overlay (`H`)
@@ -95,7 +96,7 @@
 
 ## 🏆 Platform Comparison
 
-A comprehensive comparison of CARLA-Air against 14 existing simulation platforms (based on Table 1 from the [technical report](https://arxiv.org/abs/2603.28032)).
+A comprehensive comparison of CARLA-Air against 14 existing simulation platforms (based on Table 1 from the [technical report](docs/pdf/CarlaAir.pdf)).
 
 <table>
   <thead>
@@ -421,7 +422,7 @@ We provide **6 curated Python examples** showcasing the core air-ground cooperat
 - [x] ROS2 validation (63 topics)
 - [x] One-click environment setup
 - [x] Recording toolkit (vehicle, drone, pedestrian trajectories)
-- [x] Technical report ([PDF](https://arxiv.org/abs/2603.28032))
+- [x] Technical report ([PDF](docs/pdf/CarlaAir.pdf))
 - [ ] Project page (in progress)
 - [ ] Tutorial documentation
 - [ ] 3DGS rendering pipeline integration
