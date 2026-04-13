@@ -206,7 +206,7 @@ else
     # 1. Project venv
     if [ -x "${SCRIPT_DIR}/.venv/bin/python3" ]; then
         TRAFFIC_PYTHON="${SCRIPT_DIR}/.venv/bin/python3"
-    # 2. Current python3 (from conda activate or system)
+    # 2. Current python3 (from venv activate or system)
     elif command -v python3 &>/dev/null && python3 -c "import carla" 2>/dev/null; then
         TRAFFIC_PYTHON="python3"
     fi
@@ -223,7 +223,7 @@ else
         echo ""
         echo "  Warning: python3 with 'carla' module not found."
         echo "  Traffic not spawned. To fix:"
-        echo "    conda activate carlaAir   # or run: bash env_setup/setup_env.sh"
+        echo "    source .venv/bin/activate   # or run: bash env_setup/setup_env_uv.sh"
         echo "  Then restart CarlaAir."
     fi
 

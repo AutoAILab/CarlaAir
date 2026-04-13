@@ -33,7 +33,7 @@ for mod in carla airsim pygame numpy; do
     if python3 -c "import $mod" 2>/dev/null; then
         ok "$mod"
     else
-        fail "$mod — not installed (run: bash env_setup/setup_env.sh)"
+        fail "$mod — not installed (run: bash env_setup/setup_env_uv.sh)"
     fi
 done
 
@@ -114,7 +114,7 @@ if [ ${FAIL} -eq 0 ]; then
     echo "  Status: ALL CHECKS PASSED"
 else
     echo "  Status: SOME CHECKS FAILED"
-    echo "  Fix: conda activate carlaAir && bash env_setup/setup_env.sh"
+    echo "  Fix: source .venv/bin/activate && bash env_setup/setup_env_uv.sh"
 fi
 echo "============================================"
 
