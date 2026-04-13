@@ -32,7 +32,17 @@ bash env_setup/test_env.sh        # verify: should show all PASS
 # 4. Run the showcase! (in another terminal)
 source .venv/bin/activate
 python3 examples/quick_start_showcase.py
+
+# 5. AGCarla Dataset Generation
+source .venv/bin/activate
+# Record a baseline sequence
+python3 dataset_generation/agcarla_datagen.py --mode record --out data/baselines
+# Replay under variations (Rain, etc. must be set in simulator first)
+python3 dataset_generation/agcarla_datagen.py --mode replay --host 127.0.0.1
 ```
+
+## 📐 Dataset Architecture
+For detailed information on the Air-Ground Swarm architecture and Ground Truth fusion, see the **[Architecture Guide](file:///home/df/data/jflinte/CarlaAir/dataset_generation/ARCHITECTURE.md)**.
 
 ## Why UV?
 `uv` provides significantly faster environment resolution and installation compared to Conda. CarlaAir's `setup_env_uv.sh` handles the complex injection of the pre-compiled `carla` module into the local `.venv` automatically.

@@ -11,3 +11,7 @@
 - Created `env_setup/setup_env_uv.sh` for fast, reproducible environment setup.
 - Updated `env_setup/test_env.sh` and `carlaAir.sh` to support UV-based virtual environments.
 - Initialized `VIPR_README.md` with UV setup guide.
+- Initialized AGCarla dataset pipeline documentation (ARCHITECTURE, TASKS, METADATA).
+- Implemented core generation script `agcarla_datagen.py` with Air-Ground Swarm coordination (1 UGV + 5 UAVs).
+- Developed a transform-based Record/Replay engine with path-accurate teleportation playback.
+- Integrated lossless G-Buffer bundling (.npz) and per-pixel unit Ray-Map generation.
