@@ -86,7 +86,17 @@ EOF
 while [ $# -gt 0 ]; do
     case "$1" in
         --kill)
-            pkill -f "auto_traffic.py" 2>/dev/null && echo "Traffic stopped." || true
+            # Graceful traffic cleanup: send SIGTERM so auto_traffic.py destroys actors
+            if pgrep -f "auto_traffic.py" > /dev/null 2>&1; then
+                kill $(pgrep -f "auto_traffic.py") 2>/dev/null
+                echo "Waiting for traffic cleanup..."
+                sleep 3
+                # Force kill if still alive
+                pkill -9 -f "auto_traffic.py" 2>/dev/null || true
+                echo "Traffic stopped."
+            else
+                echo "No traffic process running."
+            fi
             sleep 1
             pkill -f "CarlaUE4-Linux-Shipping" 2>/dev/null && echo "CarlaAir stopped." || echo "No running instance found."
             exit 0 ;;

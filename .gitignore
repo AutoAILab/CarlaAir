@@ -36,3 +36,12 @@ Thumbs.db
 *.a
 *.debug
 *.sym
+
+# CarlaAir Binaries and Release Artifacts
+CarlaUE4/
+Engine/
+AirSimConfig/
+CarlaAir-v0.1.7.zip
+CarlaAir-v0.1.7/
+trajectories/
+recordings/
