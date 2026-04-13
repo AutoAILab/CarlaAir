@@ -17,6 +17,7 @@ RES_Y=720
 CARLA_PORT=2000
 AIRSIM_PORT=41451
 QUALITY="Epic"
+HEADLESS=0
 FG=0
 USE_OPENGL=0
 
@@ -53,6 +54,7 @@ Options:
   --quality LEVEL    Quality level: Low, Medium, High, Epic (default: Epic)
   --opengl           Use OpenGL4 instead of Vulkan
   --fg               Run in foreground (see all logs)
+  --headless         Run in headless mode (no window)
   --kill             Stop running CarlaAir instance
   --log              Show live log
   --help             Show this help
@@ -92,6 +94,7 @@ while [ $# -gt 0 ]; do
             [ -f "${LOGFILE}" ] && tail -f "${LOGFILE}" || echo "No log file found."
             exit 0 ;;
         --fg) FG=1 ;;
+        --headless) HEADLESS=1 ;;
         --opengl) USE_OPENGL=1 ;;
         --res)
             shift; RES_X="${1%%x*}"; RES_Y="${1##*x}" ;;
@@ -153,7 +156,9 @@ CMD="${CMD} -unattended -nosound -UseVSync"
 if [ ${USE_OPENGL} -eq 1 ]; then
     CMD="${CMD} -opengl4"
 fi
-# CMD="${CMD} -RenderOffScreen"  # Uncomment for headless mode
+if [ ${HEADLESS} -eq 1 ]; then
+    CMD="${CMD} -RenderOffScreen"
+fi
 
 echo "============================================"
 echo "  CarlaAir - Air-Ground Co-Simulation"

@@ -2,6 +2,18 @@
 
 This document outlines the specialized environment setup using `uv` for high-speed package management.
 
+## Datasets
+- [AGCarla](/home/df/data/datasets/AGCarla/README.md)
+
+## 📦 Missing Binary? (Read First)
+The current repository only contains the **source code** for the co-simulation environment and its workflows. It does **not** include the 10GB+ pre-built simulator binary required to run `carlaAir.sh`.
+
+To get started without a complex 8+ hour compilation process, download the **v0.1.7 pre-built executable**:
+- 📥 **Hugging Face**: [Download CarlaAir-v0.1.7](https://huggingface.co/tianlezeng/CarlaAIr-v0.1.7)
+- 📥 **Baidu Pan**: [Download](https://pan.baidu.com/s/1RguWqwKrN-3KEgyKvWiiug?pwd=d5ai) (Pwd: `d5ai`)
+
+Extract the contents and ensure the `CarlaUE4` directory exists at your project root.
+
 ## 🎮 Quick Start with UV
 
 ```bash
