@@ -25,3 +25,8 @@
 - Integrated dynamic ODD tagging (Weather, Town, Sequence) and multi-UAV swarm tagging into the datagen pipeline.
 - Developed real-time per-frame JSONL logging with external resource linking for multi-modal data.
 - Verified manifest compliance and data integrity via unit tests in `verify_logic.py` and a 5-frame smoke test.
+- Completed `T04_geometric_modalities.md`: Implemented and verified geometric consistency for the AGCarla dataset pipeline.
+- Developed centralized geometry utility library (`geometry.py`) for pinhole re-projection and cross-engine coordinate alignment.
+- Integrated automated Global Coordinate Offset Calibration to synchronize CARLA world and AirSim local origins.
+- Implemented a hybrid validation framework (`verify_geometry.py`) featuring semantic-guided absolute alignment and project-back consistency checks.
+- Confirmed sub-centimeter geometric precision floors for 16-bit depth quantization.

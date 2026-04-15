@@ -11,6 +11,7 @@ description: Standardized package and environment management protocols for Carla
 - **Workflow**: 
   - Initialization: `bash env_setup/setup_env_uv.sh`
   - Activation: `source .venv/bin/activate`
+  - **Execution**: Always run scripts using `uv run <script_name>` or by explicitly using the `.venv/bin/python` interpreter.
 - **Rationale**: `uv` provides significantly faster installation and more reproducible environment locking compared to Conda.
 
 ## 2. Legacy Support: Conda

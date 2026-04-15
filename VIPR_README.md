@@ -39,10 +39,13 @@ source .venv/bin/activate
 python3 dataset_generation/agcarla_datagen.py --mode record --out data/baselines
 # Replay under variations (Rain, etc. must be set in simulator first)
 python3 dataset_generation/agcarla_datagen.py --mode replay --host 127.0.0.1
+# Verify geometric consistency
+python3 dataset_generation/verify_geometry.py --dir data/baselines/LATEST_SEQ
 ```
 
 ## 📐 Dataset Architecture
 For detailed information on the Air-Ground Swarm architecture and Ground Truth fusion, see the **[Architecture Guide](file:///home/df/data/jflinte/CarlaAir/dataset_generation/ARCHITECTURE.md)**.
+Specifically, see **Section 4** for details on the Geometry Utility library and the Multi-View re-projection pipeline.
 
 ## Why UV?
 `uv` provides significantly faster environment resolution and installation compared to Conda. CarlaAir's `setup_env_uv.sh` handles the complex injection of the pre-compiled `carla` module into the local `.venv` automatically.

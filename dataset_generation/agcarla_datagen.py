@@ -12,6 +12,7 @@ import concurrent.futures
 from datetime import datetime
 from PIL import Image
 import io
+from geometry import GeometryUtils
 
 class AGCarlaGenerator:
     def __init__(self, args):
@@ -28,13 +29,16 @@ class AGCarlaGenerator:
         bootstrap_client.confirmConnection()
         self.uav_names = bootstrap_client.listVehicles()
         
-        # 2. Initialize dedicated clients for each UAV
         self.uav_clients = {}
         print(f"Initializing AirSim Client Pool for {len(self.uav_names)} vehicles...")
         for name in self.uav_names:
             client = airsim.MultirotorClient(port=args.airsim_port)
             client.confirmConnection()
             self.uav_clients[name] = client
+        
+        # 3. Calibrate CARLA-AirSim Coordinate Offset
+        self.global_offset = self.calibrate_global_offsets()
+        print(f"Global Coordinate Offset Calibrated: {self.global_offset}")
         
         self.recording = {} # Frame ID -> Actor Transforms
         
@@ -87,6 +91,30 @@ class AGCarlaGenerator:
             'UAV_5': (90, 0, -90)
         }
         
+    def calibrate_global_offsets(self):
+        """Calculates the translation offset between CARLA world origin and AirSim local origin."""
+        drone_actor = None
+        # Find any AirSim drone in CARLA space
+        for a in self.world.get_actors():
+            if "drone" in a.type_id.lower() or "airsim" in a.type_id.lower():
+                drone_actor = a
+                break
+        
+        if not drone_actor:
+            print("Warning: Could not find AirSim drone in CARLA world. Offset defaulted to zero.")
+            return {'x': 0.0, 'y': 0.0, 'z': 0.0}
+            
+        cl = drone_actor.get_location()
+        # Get position from AirSim for the same drone
+        ap = self.uav_clients[self.uav_names[0]].getMultirotorState().kinematics_estimated.position
+        
+        # offset = AirSim - CARLA
+        return {
+            'x': ap.x_val - cl.x,
+            'y': ap.y_val - cl.y,
+            'z': ap.z_val - (-cl.z) # CARLA Z is Up (positive), AirSim Z is Down (negative)
+        }
+        
     def setup_ugv(self):
         """Spawns the Lead UGV and attaches ground sensors."""
         bp = self.blueprint_library.filter('vehicle.tesla.model3')[0]
@@ -96,7 +124,9 @@ class AGCarlaGenerator:
         self.ugv = self.world.spawn_actor(bp, spawn_point)
         self.actor_list.append(self.ugv)
         
-        # Ensure we use the correct Traffic Manager for Autopilot
+        # Initial tick to register transform in the world state
+        self.world.tick()
+        print(f"Lead UGV Spawned at: {self.ugv.get_transform().location}")
         if self.traffic_manager:
             tm_port = self.traffic_manager.get_port()
             self.ugv.set_autopilot(True, tm_port)
@@ -166,11 +196,11 @@ class AGCarlaGenerator:
                 bx = -back_offset * np.cos(ugv_yaw_rad)
                 by = -back_offset * np.sin(ugv_yaw_rad)
                 
-                # Target Position in World Space
+                # Target Position in World Space (Compensating for AirSim Local Origin Offset)
                 target_pos_world = airsim.Vector3r(
-                    ugv_transform.location.x + bx,
-                    ugv_transform.location.y + by,
-                    -(ugv_transform.location.z + height) # AirSim Z-down
+                    ugv_transform.location.x + bx + self.global_offset['x'],
+                    ugv_transform.location.y + by + self.global_offset['y'],
+                    -(ugv_transform.location.z + height) + self.global_offset['z']
                 )
                 
                 # Orientation: Match UGV yaw, apply drone-specific pitch
@@ -272,12 +302,7 @@ class AGCarlaGenerator:
 
     def get_ray_map(self):
         """Generates a static Ray Map for the camera configuration."""
-        f = self.args.width / (2.0 * np.tan(110 * np.pi / 360.0)) # FOV 110
-        x = np.arange(self.args.width)
-        y = np.arange(self.args.height)
-        xx, yy = np.meshgrid(x, y)
-        rays = np.stack([xx - self.args.width/2.0, yy - self.args.height/2.0, np.full_like(xx, f)], axis=-1)
-        rays /= np.linalg.norm(rays, axis=-1, keepdims=True)
+        rays = GeometryUtils.get_ray_map(self.args.width, self.args.height)
         
         # Save ray map once
         np.save(os.path.join(self.output_dir, 'metadata', 'ray_map.npy'), rays.astype(np.float32))
@@ -327,6 +352,7 @@ class AGCarlaGenerator:
         return npcs
 
     def save_metadata(self, frame_id, data):
+        data['global_offset'] = self.global_offset
         with open(os.path.join(self.output_dir, 'metadata', f'{frame_id:06d}.json'), 'w') as f:
             json.dump(data, f)
 
