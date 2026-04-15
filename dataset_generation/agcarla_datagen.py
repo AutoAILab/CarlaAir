@@ -79,7 +79,7 @@ class AGCarlaGenerator:
         # Directories
         self.output_dir = os.path.join(args.out, datetime.now().strftime("%Y%m%d_%H%M%S"))
         os.makedirs(self.output_dir, exist_ok=True)
-        for sub in ['images', 'depth', 'seg', 'gbuffer', 'metadata']:
+        for sub in ['images', 'depth', 'seg', 'gbuffer', 'lidar', 'metadata']:
             os.makedirs(os.path.join(self.output_dir, sub), exist_ok=True)
         
         # Swarm Offsets Configuration (Height, HorizontalBackOffset, PitchDeg)
@@ -137,6 +137,7 @@ class AGCarlaGenerator:
         
         # Attach CARLA sensors to UGV (RGB, Lidar, Semantic)
         self.add_carla_sensor('sensor.camera.rgb', carla.Transform(carla.Location(x=1.6, z=1.7)), 'ugv_rgb')
+        self.add_carla_sensor('sensor.camera.depth', carla.Transform(carla.Location(x=1.6, z=1.7)), 'ugv_depth')
         self.add_carla_sensor('sensor.lidar.ray_cast', carla.Transform(carla.Location(z=2.5)), 'ugv_lidar')
         
     def add_carla_sensor(self, bp_name, transform, sensor_id):
@@ -152,20 +153,17 @@ class AGCarlaGenerator:
         self.actor_list.append(sensor)
         self.sensor_queues[sensor_id] = q
 
-        # G-Buffer Listeners (Only for UGV RGB camera)
-        if sensor_id == 'ugv_rgb' and hasattr(sensor, 'listen_to_gbuffer'):
-            for gb_id in [carla.GBufferTextureID.GBufferA, carla.GBufferTextureID.SceneDepth]:
-                gb_q = queue.Queue()
-                sensor.listen_to_gbuffer(gb_id, lambda data: self.on_gbuffer_data(f"ugv_{gb_id.name}", data))
-                self.sensor_queues[f"ugv_{gb_id.name}"] = gb_q
+        # G-Buffer Listeners Disabled (Unstable in current headless setup)
+        # if sensor_id == 'ugv_rgb' and hasattr(sensor, 'listen_to_gbuffer'):
+        #     for gb_id in [carla.GBufferTextureID.GBufferA, carla.GBufferTextureID.SceneDepth]:
+        #         gb_q = queue.Queue()
+        #         sensor.listen_to_gbuffer(gb_id, lambda data: self.on_gbuffer_data(f"ugv_{gb_id.name}", data))
+        #         self.sensor_queues[f"ugv_{gb_id.name}"] = gb_q
         
         return sensor
 
     def on_carla_sensor_data(self, sensor_id, data):
         self.sensor_queues[sensor_id].put(data)
-
-    def on_gbuffer_data(self, gb_key, data):
-        self.sensor_queues[gb_key].put(data)
 
     def capture_frame(self, frame_id):
         """Captures synchronized data from 1 UGV and 5 UAVs using threaded synchronization."""
@@ -235,7 +233,7 @@ class AGCarlaGenerator:
         
         for uav_name, future in uav_futures.items():
             try:
-                responses = future.result(timeout=10.0)
+                responses = future.result(timeout=30.0)
                 uav_client = self.uav_clients[uav_name]
                 uav_pose = uav_client.simGetVehiclePose(vehicle_name=uav_name)
                 frame_transforms['uavs'][uav_name] = self.get_pose_dict(uav_pose)
@@ -245,16 +243,41 @@ class AGCarlaGenerator:
                     print(f"[TRACE] UAV data received for {uav_name}")
                 else:
                     print(f"Warning: No images received for {uav_name}")
+                
+                time.sleep(0.1) # Small pacing between drone processing
             except Exception as e:
                 print(f"[TRACE] Error resolving UAV {uav_name}: {e}")
 
         # 4. Save UGV Data
         print("[TRACE] Retrieving UGV sensor data...")
         try:
+            # RGB
             image = self.sensor_queues['ugv_rgb'].get(timeout=5.0)
             img_name = f'ugv_{frame_id:06d}.png'
             image.save_to_disk(os.path.join(self.output_dir, 'images', img_name))
-            self.save_ugv_gbuffer(frame_id)
+            
+            # Depth (Standard sensor)
+            try:
+                depth_img = self.sensor_queues['ugv_depth'].get(timeout=2.0)
+                # Convert CARLA depth Image to linear float32
+                # Standard CARLA depth camera returns 24-bit encoded depth in raw_data
+                encoded = np.frombuffer(depth_img.raw_data, dtype=np.uint8).reshape((depth_img.height, depth_img.width, 4))
+                depth_linear = GeometryUtils.decode_carla_depth(encoded)
+                npz_path = os.path.join(self.output_dir, 'gbuffer', f'ugv_{frame_id:06d}.npz')
+                np.savez_compressed(npz_path, SceneDepth=encoded, depth_linear=depth_linear)
+            except queue.Empty:
+                print("Warning: UGV Depth data timed out.")
+
+            # Lidar
+            try:
+                lidar_data = self.sensor_queues['ugv_lidar'].get(timeout=1.0)
+                # Convert CARLA Lidar (raw_data) to numpy (N, 3 or N, 4)
+                points = np.frombuffer(lidar_data.raw_data, dtype=np.float32).reshape([-1, 4])
+                # Save as .npy
+                np.save(os.path.join(self.output_dir, 'lidar', f'ugv_{frame_id:06d}.npy'), points)
+            except queue.Empty:
+                print("Warning: UGV Lidar data timed out.")
+
             print("[TRACE] UGV data received.")
         except Exception as e:
             print(f"[TRACE] UGV Timeout or Error: {e}")
@@ -267,22 +290,6 @@ class AGCarlaGenerator:
         self.append_openlabel_frame(frame_id)
         
         print(f"[TRACE] Frame {frame_id} Complete")
-
-    def save_ugv_gbuffer(self, frame_id):
-        gb_bundle = {}
-        for gb_key in ['ugv_GBufferA', 'ugv_SceneDepth']:
-            if gb_key in self.sensor_queues:
-                try:
-                    data = self.sensor_queues[gb_key].get(timeout=1.0)
-                    # Convert CARLA GBuffer data to numpy
-                    gb_bundle[gb_key.split('_')[1]] = np.frombuffer(data.raw_data, dtype=np.uint8).reshape((data.height, data.width, 4))
-                except queue.Empty:
-                    pass
-        
-        if gb_bundle:
-            npz_path = os.path.join(self.output_dir, 'gbuffer', f'ugv_{frame_id:06d}.npz')
-            np.savez_compressed(npz_path, **gb_bundle)
-
     def save_uav_data(self, frame_id, uav_name, responses):
         gbuffer_bundle = {}
         for response in responses:

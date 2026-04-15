@@ -30,3 +30,8 @@
 - Integrated automated Global Coordinate Offset Calibration to synchronize CARLA world and AirSim local origins.
 - Implemented a hybrid validation framework (`verify_geometry.py`) featuring semantic-guided absolute alignment and project-back consistency checks.
 - Confirmed sub-centimeter geometric precision floors for 16-bit depth quantization.
+- Completed `T05_verification_pilot.md`: Finalized infrastructure and executed the 50-frame pilot capture for the AGCarla dataset.
+- Upgraded `agcarla_datagen.py` with specialized UGV depth sensors and raw Lidar logging for zero-latency verification.
+- Established a comprehensive verification suite including Sync GIFs, multi-view pointcloud fusion, and OpenLabel manifest validation.
+- Verified pipeline stability and data integrity across 50 frames in Town10HD with optimized headless server configurations.
+

@@ -2,7 +2,7 @@
 
 This document tracks the milestones and associated subtasks required to build and execute the AGCarla data generation pipeline.
 
-## Milestone 1: Core Generation Script (`agcarla_datagen.py`)
+## Milestone 1: Core Generation Script (`agcarla_datagen.py`) [COMPLETED]
 - [ ] **Infrastructure Setup**
     - [ ] Implement CARLA client/world connection with `synchronous_mode`.
     - [ ] **Swarm Integration**: Iterate through `UAV_1` to `UAV_5` using the AirSim `MultirotorClient`.
@@ -11,25 +11,25 @@ This document tracks the milestones and associated subtasks required to build an
     - [ ] Setup UGV and Swarm Drone Sensor Suites (RGB, Depth, Seg, LiDAR, IMU).
     - [ ] **QA Hook**: Implement real-time `lane_type` validation.
 
-## Milestone 2: Swarm Coordination & Movement
+## Milestone 2: Swarm Coordination & Movement [COMPLETED]
 - [ ] **Swarm Flight Logic**
     - [ ] Configure `settings.json` for 5 simultaneous drones.
     - [ ] Implement UGV "Chase" mode for the entire swarm.
     - [ ] Assign unique height/pitch offsets per drone.
 
-## Milestone 3: OpenLabel Manifest Generation
+## Milestone 3: OpenLabel Manifest Generation [COMPLETED]
 - [ ] **Schema Implementation**
     - [ ] Create `master_manifest.jsonl` in ASAM OpenLabel 1.0.0 format.
     - [ ] Implement multi-UAV tagging per frame.
 
-## Milestone 4: G-Buffer & Auxiliary Modalities
+## Milestone 4: G-Buffer & Auxiliary Modalities [COMPLETED]
 - [ ] **G-Buffer Extraction**
     - [ ] Implement `listen_to_gbuffer` for Normals, Stencil, Depth, and Velocity.
     - [ ] **Storage**: Bundle modalities into compressed **`.npz`** files per frame.
 - [ ] **Geometry Processing**
     - [ ] Calculate and save **Ray Maps** (per-pixel unit rays).
 
-## Milestone 5: Pilot Run & Verification (Dry Run)
+## Milestone 5: Pilot Run & Verification (Dry Run) [COMPLETED]
 - [ ] **Verification**
     - [ ] Export 2Hz side-by-side **Sync GIFs** (UGV + Swarm).
     - [ ] **Replay Check**: Verify that teleportation replay accurately follows the baseline path.

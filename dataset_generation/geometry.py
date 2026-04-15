@@ -101,3 +101,19 @@ class GeometryUtils:
         
         normalized = (r + g * 256.0 + b * 65536.0) / 16777215.0
         return normalized * 1000.0 # 1000m range
+
+    @staticmethod
+    def save_ply(filename, points):
+        """Saves a (N, 3) numpy array as a basic ASCII PLY file."""
+        header = f"""ply
+format ascii 1.0
+element vertex {len(points)}
+property float x
+property float y
+property float z
+end_header
+"""
+        with open(filename, 'w') as f:
+            f.write(header)
+            for p in points:
+                f.write(f"{p[0]} {p[1]} {p[2]}\n")
