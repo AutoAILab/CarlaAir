@@ -5,9 +5,10 @@ Execute the full-scale dataset generation across multiple maps and environmental
 
 ## Tasks
 - [ ] **Multi-Town Sweep**
-    - [ ] Execute 1000 frames each in 5 different towns (Town01, Town03, Town04, Town05, Town10HD).
-- [ ] **Environmental Variation**
-    - [ ] Conduct night-time and rainy-day capture sequences.
+    - [ ] Execute 2,000 frames each in 5 different towns (Town01, Town03, Town04, Town05, Town10HD).
+    - [ ] **Swarm Multiplier**: 2,000 steps = 12,000 multi-modal frames (UGV+UAV).
+- [ ] **Environmental Variation** (Replay Engine)
+    - [ ] Replay all baseline sequences under **Rainy**, **Night**, and **Sunset** variations using the Transform Record.
 - [ ] **Final Packaging**
     - [ ] Generate `README.md` for the final dataset release in the target directory.
     - [ ] Perform final manifest integrity check (5,000+ entries).

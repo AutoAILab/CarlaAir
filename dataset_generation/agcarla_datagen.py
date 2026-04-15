@@ -232,6 +232,10 @@ class AGCarlaGenerator:
         # 5. Save Metadata
         self.recording[frame_id] = frame_transforms
         self.save_metadata(frame_id, frame_transforms)
+        
+        # 6. Append to OpenLabel Manifest
+        self.append_openlabel_frame(frame_id)
+        
         print(f"[TRACE] Frame {frame_id} Complete")
 
     def save_ugv_gbuffer(self, frame_id):
@@ -325,6 +329,78 @@ class AGCarlaGenerator:
     def save_metadata(self, frame_id, data):
         with open(os.path.join(self.output_dir, 'metadata', f'{frame_id:06d}.json'), 'w') as f:
             json.dump(data, f)
+
+    def get_odd_tags(self):
+        """Extracts ODD tags (Weather, Town, SeqType) based on SCENARIO_METADATA.md."""
+        tags = []
+        
+        # 1. Town Tag
+        # Map name is usually '/Game/Carla/Maps/Town01', we want 'Town_01'
+        town_match = self.map.name.split('/')[-1]
+        if 'Town' in town_match:
+            town_tag = f"Town_{town_match.replace('Town', '')}"
+        else:
+            town_tag = f"Map_{town_match}"
+        tags.append(town_tag)
+        
+        # 2. Sequence Type Tag
+        tags.append("SeqBaseline" if self.args.mode == 'record' else "SeqVar")
+        
+        # 3. Weather Tag
+        w = self.world.get_weather()
+        if w.cloudiness < 20 and w.precipitation == 0:
+            tags.append("WeatherClear")
+        elif w.precipitation > 30:
+            tags.append("WeatherRain")
+        elif w.fog_density > 30:
+            tags.append("WeatherFog")
+        else:
+            tags.append("WeatherIntermediate")
+            
+        # 4. Swarm Presence Tags
+        for uav_name in self.uav_names:
+            tags.append(uav_name)
+            
+        return tags
+
+    def append_openlabel_frame(self, frame_id):
+        """Appends a frame entry to master_manifest.jsonl in OpenLABEL 1.0.0 format."""
+        snapshot = self.world.get_snapshot()
+        timestamp = snapshot.timestamp.elapsed_seconds
+        
+        # Construct frame-level metadata
+        frame_data = {
+            "openlabel": {
+                "metadata": {
+                    "schema_version": "1.0.0",
+                    "generation_time": datetime.now().isoformat(),
+                    "creator": "AGCarla Generator"
+                },
+                "frames": {
+                    str(frame_id): {
+                        "frame_properties": {
+                            "timestamp": timestamp,
+                            "tags": self.get_odd_tags(),
+                            "external_resources": [
+                                {"name": "ugv_rgb", "url": f"images/ugv_{frame_id:06d}.png", "type": "image/png"},
+                                {"name": "ugv_gbuffer", "url": f"gbuffer/ugv_{frame_id:06d}.npz", "type": "application/x-npz"}
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+        
+        # Add UAV resources
+        for uav_name in self.uav_names:
+            frame_data["openlabel"]["frames"][str(frame_id)]["frame_properties"]["external_resources"].extend([
+                {"name": f"{uav_name}_rgb", "url": f"images/{uav_name}_{frame_id:06d}.png", "type": "image/png"},
+                {"name": f"{uav_name}_gbuffer", "url": f"gbuffer/{uav_name}_{frame_id:06d}.npz", "type": "application/x-npz"}
+            ])
+
+        manifest_path = os.path.join(self.output_dir, 'master_manifest.jsonl')
+        with open(manifest_path, 'a') as f:
+            f.write(json.dumps(frame_data) + '\n')
 
     def cleanup(self):
         print("Cleaning up actors...")

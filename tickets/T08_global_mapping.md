@@ -8,7 +8,7 @@ Develop an automated script to accumulate LiDAR segments into a single consisten
     - [ ] Implement LiDAR colorization and global transform application.
     - [ ] Implement voxel downsampling (`voxel_size = 0.1m`) for stability.
 - [ ] **Automated Merging Script**
-    - [ ] Create `merge_town_maps.py` to crawl the dataset directory, group segments by town, and output a single `.ply` map per town.
+    - [ ] Create `merge_town_maps.py` (in `./dataset_generation`) to crawl the dataset directory, group segments by town, and output a single `.ply` map per town.
 - [ ] **QA Verification**
     - [ ] Verify global alignment accuracy between merged segments.
 

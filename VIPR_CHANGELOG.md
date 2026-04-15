@@ -21,3 +21,7 @@
 - Implemented multi-UAV coordinate mapping (CARLA to NED) for stable relative flight.
 - Fixed AirSim segmentation image parsing in `agcarla_datagen.py` to handle compressed PNG responses.
 - Verified swarm coordination via 5-frame smoke test in Town10HD.
+- Completed `T03_openlabel_manifest.md`: Implemented automated ASAM OpenLABEL 1.0.0 manifest generation.
+- Integrated dynamic ODD tagging (Weather, Town, Sequence) and multi-UAV swarm tagging into the datagen pipeline.
+- Developed real-time per-frame JSONL logging with external resource linking for multi-modal data.
+- Verified manifest compliance and data integrity via unit tests in `verify_logic.py` and a 5-frame smoke test.

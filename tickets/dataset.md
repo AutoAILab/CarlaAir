@@ -27,10 +27,10 @@ Perspectives:
 ---
 
 ## Sub-tickets
-- [ ] **[T01: Core Generation Script Setup](file:///home/df/data/jflinte/CarlaAir/tickets/T01_core_datagen_script.md)**
-- [ ] **[T02: UAV Variation & Pose Control](file:///home/df/data/jflinte/CarlaAir/tickets/T02_uav_variation_control.md)**
+- [x] **[T01: Core Generation Script Setup](file:///home/df/data/jflinte/CarlaAir/tickets/T01_core_datagen_script.md)**
+- [ ] **[T02: Swarm Coordination & Control](file:///home/df/data/jflinte/CarlaAir/tickets/T02_swarm_coordination.md)**
 - [ ] **[T03: OpenLabel Manifest Generation](file:///home/df/data/jflinte/CarlaAir/tickets/T03_openlabel_manifest.md)**
-- [ ] **[T04: Geometric Modalities & Ray Maps](file:///home/df/data/jflinte/CarlaAir/tickets/T04_geometric_modalities.md)**
+- [ ] **[T04: Projection Validation & Ray Maps](file:///home/df/data/jflinte/CarlaAir/tickets/T04_geometric_modalities.md)**
 - [ ] **[T05: Pilot Run & Verification](file:///home/df/data/jflinte/CarlaAir/tickets/T05_verification_pilot.md)**
 - [ ] **[T06: Production Generation](file:///home/df/data/jflinte/CarlaAir/tickets/T06_production_run.md)**
 - [ ] **[T07: G-Buffer & Auxiliary Modalities](file:///home/df/data/jflinte/CarlaAir/tickets/T07_gbuffer_extraction.md)**

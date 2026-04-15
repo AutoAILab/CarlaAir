@@ -45,3 +45,6 @@ CarlaAir-v0.1.7.zip
 CarlaAir-v0.1.7/
 trajectories/
 recordings/
+
+# test data
+data/
