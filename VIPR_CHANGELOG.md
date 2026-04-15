@@ -15,3 +15,9 @@
 - Implemented core generation script `agcarla_datagen.py` with Air-Ground Swarm coordination (1 UGV + 5 UAVs).
 - Developed a transform-based Record/Replay engine with path-accurate teleportation playback.
 - Integrated lossless G-Buffer bundling (.npz) and per-pixel unit Ray-Map generation.
+
+## 2026-04-15
+- Completed `T02_swarm_coordination.md`: Finalized 5-drone chase logic and relative perspective offsets.
+- Implemented multi-UAV coordinate mapping (CARLA to NED) for stable relative flight.
+- Fixed AirSim segmentation image parsing in `agcarla_datagen.py` to handle compressed PNG responses.
+- Verified swarm coordination via 5-frame smoke test in Town10HD.
