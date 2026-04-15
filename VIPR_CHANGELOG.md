@@ -33,5 +33,7 @@
 - Completed `T05_verification_pilot.md`: Finalized infrastructure and executed the 50-frame pilot capture for the AGCarla dataset.
 - Upgraded `agcarla_datagen.py` with specialized UGV depth sensors and raw Lidar logging for zero-latency verification.
 - Established a comprehensive verification suite including Sync GIFs, multi-view pointcloud fusion, and OpenLabel manifest validation.
-- Verified pipeline stability and data integrity across 50 frames in Town10HD with optimized headless server configurations.
+- Completed `path_planning.md`: Documented path planning research and finalized the Record/Replay based movement system.
+- Formalized "Route Files" as metadata-driven transform sequences for deterministic multi-ODD variation generation.
+- Verified follow-mode stability for the 5-UAV swarm relative to a Lead UGV using CARLA Autopilot.
 
