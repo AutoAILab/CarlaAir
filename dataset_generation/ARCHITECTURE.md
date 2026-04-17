@@ -24,9 +24,10 @@ To maximize generation efficiency and viewpoint diversity, the pipeline utilizes
 | **UAV_5** | AirSim | 90m | High-altitude strategic view |
 
 - **Drone Swarm (Aerial)**: 5 drones (`UAV_1` to `UAV_5`) are spawned simultaneously in the world via AirSim.
-- **Ground Perspective (UGV)**: The primary ground vehicle (`UGV_1`) is spawned via CARLA and acts as the "Lead" actor for the swarm.
-- **Synchronized Capture**: For every frame, the pipeline captures 6 unique perspectives (1 Ground + 5 Aerial) in a single synchronized tick.
+- **Ground Perspective (UGV)**: The primary ground vehicle (`UGV_1`) can act as the "Lead" actor, or the simulation can be led by a drone (`UAV_1`) in a UGV-free mode.
+- **Synchronized Capture**: For every frame, the pipeline captures up to 6 unique perspectives (1 Ground + 5 Aerial) in a single synchronized tick.
 - **Perspectives**: Each aerial drone maintains a dedicated height (e.g., 15m to 90m), while the UGV captures the driver-level perspective.
+- **Drone-Only Mode**: Utilizing the `--no-ugv` flag, the pipeline can operate using only aerial routes for high-speed top-down or oblique data collection.
 
 ## 4. Coordinate Systems & Alignment
 CarlaAir provides exact mathematical alignment between the two physics engines:
@@ -70,8 +71,21 @@ To ensure consistent path-following across different environmental conditions (e
 
 ---
 
-## 7. Related Documentation
+## 8. Stability & Scaling Architecture
+
+### 8.1 Dual-Client Connection
+To prevent **RPC Buffer Collisions** during high-speed synchronous capture, each UAV maintains two physically separate network sockets:
+- **Sensor Client**: dedicated to `simGetImages` calls.
+- **Control Client**: dedicated to gimbal orientation and vehicle pose updates.
+
+### 8.2 Multi-Route Merging
+The pipeline supports a **Route Map** architecture where independent trajectories recorded in separate sessions can be fused into a single co-simulation. The `agcarla_datagen.py` script identifies replaying actors and automatically disables high-level AI (CARLA Autopilot or AirSim PID) to allow direct transform-based playback.
+
+---
+
+## 9. Related Documentation
 - [agcarla_datagen.py](file:///home/df/data/jflinte/CarlaAir/dataset_generation/agcarla_datagen.py): The core generation orchestration script.
+- **[CONFIG_GUIDE.md](file:///home/df/data/jflinte/CarlaAir/dataset_generation/CONFIG_GUIDE.md)**: Full reference for all JSON and CLI flags.
 - **[TASKS.md](file:///home/df/data/jflinte/CarlaAir/dataset_generation/TASKS.md)**: Detailed implementation milestones and subtasks.
 - **[VERIFICATION.md](file:///home/df/data/jflinte/CarlaAir/dataset_generation/VERIFICATION.md)**: Mandatory QA steps for geometric and data integrity.
 - **[SCENARIO_METADATA.md](file:///home/df/data/jflinte/CarlaAir/dataset_generation/SCENARIO_METADATA.md)**: Full taxonomy of ODD tags and sensor attributes.

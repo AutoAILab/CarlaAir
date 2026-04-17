@@ -37,3 +37,14 @@
 - Formalized "Route Files" as metadata-driven transform sequences for deterministic multi-ODD variation generation.
 - Verified follow-mode stability for the 5-UAV swarm relative to a Lead UGV using CARLA Autopilot.
 
+## 2026-04-17
+- Resolved simulator "black screen" rendering issue by updating `AirSimConfig/settings.json` and providing Pygame-based alternative viewports.
+- Developed `examples/manual_fly_drone.py`: High-performance drone FPV pilot with body-frame velocity control.
+- Developed `examples/manual_drive_vehicle.py`: Car controller with chase camera and dynamic weather switching.
+- Implemented **20Hz Path Recording** in manual mode; exported trajectories include automated multi-UAV swarm configurations.
+- Upgraded `agcarla_datagen.py` with `--no-uavs` and `--no-ugv` flags for performance-optimized single-domain datasets.
+- Developed **Drone Lead Support**: AirSim drones can now act as trajectory leads, replaying recorded waypoints via path-accurate teleportation.
+- Introduced **Drone Perspectives**: Added `top-down`, `oblique`, and `side` presets (with manual pitch/height overrides) for generating multi-angle data from a single flight.
+- Fixed **AirSim Deadlock & BufferError**: Implemented a Dual-Client architecture and threaded gimbal initialization to ensure stability in Synchronous mode.
+- Developed `dataset_generation/trajectories/trim_route.py` to automate the removal of stationary waypoints from the start of recordings.
+

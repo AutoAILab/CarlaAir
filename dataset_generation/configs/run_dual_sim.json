@@ -1,0 +1,16 @@
+{
+    "route_map": {
+        "UAV_1": "dataset_generation/trajectories/route_drone_20260417_175246.json",
+        "UGV_1": "dataset_generation/trajectories/route_ugv_only_20260417_172852.json"
+    },
+    "fixed_dt": 0.05,
+    "no_uavs": false,
+    "no_ugv": false,
+    "perspective": "oblique",
+    "camera_pitch": -25.0,
+    "height_offset": 10.0,
+    "camera_offset_x": 0.2,
+    "camera_offset_z": 0.1,
+    "viz_path": true,
+    "out": "data/dual_sim_test"
+}
