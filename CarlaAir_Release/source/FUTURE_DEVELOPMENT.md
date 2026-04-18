@@ -25,7 +25,7 @@ CarlaAir 当前使用 UE4 4.26 的标准延迟渲染管线：
 **入口文件**: 无需修改 CarlaAir 代码，在 UE4 引擎层替换
 
 1. **UE4 Renderer 替换**:
-   - 路径: `/mnt/data1/tianle/carla_ue4/Engine/Source/Runtime/Renderer/`
+   - 路径: `$UE4_ROOT/Engine/Source/Runtime/Renderer/`
    - 在 `DeferredShadingRenderer.cpp` 的 Render() 函数中插入 3DGS 渲染通道
    - 或创建新的 `F3DGSSceneRenderer` 继承 `FSceneRenderer`
 
@@ -144,7 +144,7 @@ void SimModeBase::Tick(float DeltaSeconds) {
 | 物理循环 | `SimModeBase.cpp` → `setupPhysicsLoopPeriod()` |
 | 无人机控制器 | `Plugins/AirSim/Source/Vehicles/Multirotor/` |
 | 坐标转换 | `Plugins/AirSim/Source/NedTransform.h/.cpp` |
-| UE4 渲染器 | `/mnt/data1/tianle/carla_ue4/Engine/Source/Runtime/Renderer/` |
+| UE4 渲染器 | `$UE4_ROOT/Engine/Source/Runtime/Renderer/` |
 | 地图资源 | `Unreal/CarlaUE4/Content/Carla/Maps/Town10HD/` |
 | Python CARLA API | `PythonAPI/carla/source/` |
 

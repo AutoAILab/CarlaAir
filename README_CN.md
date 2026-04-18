@@ -9,8 +9,11 @@
 
 **CARLA-Air** 是一个开源仿真基础设施，在单一 Unreal Engine 进程中统一了高保真城市驾驶与物理精确的多旋翼飞行，为空地一体具身智能研究提供了实用的仿真基础。  
 
-👉 **无需编译，下载即用的预构建可执行版本：**  
+👉 **预构建可执行文件 — Ubuntu（20.04 / 22.04），无需编译：**  
 [百度网盘](https://pan.baidu.com/s/1RguWqwKrN-3KEgyKvWiiug?pwd=d5ai) | [Hugging Face](https://huggingface.co/tianlezeng/CarlaAIr-v0.1.7)
+
+👉 **预构建可执行文件 — Windows（推荐 Windows 11 x86_64），无需编译：**  
+[百度网盘](https://pan.baidu.com/s/1bToSuL2U5PeA_8CidpsIeg?pwd=cswm)
 
 <div align="center">
   <a href="https://huggingface.co/papers/2603.28032"><img src="https://img.shields.io/badge/%F0%9F%8F%86%20HF%20Daily%20Papers-%231%20Paper%20of%20the%20Day-FFD700" alt="#1 Paper of the Day"/></a>
@@ -30,14 +33,15 @@
 <p align="center">
   <a href="README.md">English</a> | <b>简体中文</b> &nbsp;&nbsp;|&nbsp;&nbsp;
   📄 <a href="docs/pdf/CarlaAir.pdf"><b>论文</b></a> &nbsp;|&nbsp;
-  🌐 <a href="#"><b>项目主页</b></a> <i>(即将上线)</i> &nbsp;|&nbsp;
+  🌐 <a href="https://carla-air.com/"><b>项目主页</b></a> &nbsp;|&nbsp;
   📖 <a href="CarlaAir_Release/guide/Quick-Start.md"><b>文档</b></a> &nbsp;|&nbsp;
   🎬 <a href="https://www.bilibili.com/video/BV1pTQzBkES7/"><b>视频</b></a>
 </p>
 
 <p align="center">
-  <a href="https://pan.baidu.com/s/1RguWqwKrN-3KEgyKvWiiug?pwd=d5ai"><img src="https://img.shields.io/badge/百度网盘-下载-2932E1?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBmaWxsPSJ3aGl0ZSIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6Ii8+PC9zdmc+" alt="Baidu Pan"/></a>
-  <a href="https://huggingface.co/tianlezeng/CarlaAIr-v0.1.7"><img src="https://img.shields.io/badge/HuggingFace-下载-FFD21E?logo=huggingface&logoColor=black" alt="HuggingFace"/></a>
+  <a href="https://pan.baidu.com/s/1RguWqwKrN-3KEgyKvWiiug?pwd=d5ai"><img src="https://img.shields.io/badge/Ubuntu-百度网盘-2932E1?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBmaWxsPSJ3aGl0ZSIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6Ii8+PC9zdmc+" alt="Ubuntu — 百度网盘"/></a>
+  <a href="https://huggingface.co/tianlezeng/CarlaAIr-v0.1.7"><img src="https://img.shields.io/badge/Ubuntu-HuggingFace-FFD21E?logo=huggingface&logoColor=black" alt="Ubuntu — Hugging Face"/></a>
+  <a href="https://pan.baidu.com/s/1bToSuL2U5PeA_8CidpsIeg?pwd=cswm"><img src="https://img.shields.io/badge/Windows-百度网盘-0078D6?logo=windows&logoColor=white" alt="Windows — 百度网盘"/></a>
   <a href="docs/images/wxg.jpg?v=20260419"><img src="https://img.shields.io/badge/微信-交流群-07C160?logo=wechat&logoColor=white" alt="WeChat Group"/></a>
 </p>
 
@@ -58,10 +62,12 @@
 
 ## 🔥 最新动态
 
+- **[2026-04-17]** 🌐 **[项目主页正式上线！](https://carla-air.com/)** -- 访问官网了解 CARLA-Air 的全部功能、教程与演示。
+- **[2026-04-16]** $\color{red}{\textbf{Windows 版预编译包已发布。}}$ **下载：** [百度网盘 — Windows 构建](https://pan.baidu.com/s/1bToSuL2U5PeA_8CidpsIeg?pwd=cswm)（推荐 Win11 x86_64；无需编译）
 - **[2026-04-10]** [![Windows 源码分支](https://img.shields.io/badge/Windows-源码分支-0078D6?logo=windows&logoColor=white)](https://github.com/louiszengCN/CarlaAir/tree/windows/v0.1.7-win11-x86_64) [Windows 源码分支已发布](https://github.com/louiszengCN/CarlaAir/tree/windows/v0.1.7-win11-x86_64) -- Windows 构建与运行支持现已在独立分支中提供
-- **[2026-04-01]** 🏆 $\color{red}{\textbf{\\#1 Paper of the Day}}$ **登顶 [Hugging Face Daily Papers](https://huggingface.co/papers/2603.28032)！**
+- **[2026-04-01]** 🏆 $\color{red}{\text{\textbf{登顶 Hugging Face Daily Papers（No.~1 Paper of the Day）！}}}$（[论文 / 榜单页](https://huggingface.co/papers/2603.28032)）
 - **[2026-03-30]** 📄 技术报告发布 -- [阅读论文](docs/pdf/CarlaAir.pdf)
-- **[2026-03-31]** 🚀 即将上线 -- 项目主页、教程文档及开箱即用的二进制发布包，敬请期待！
+- **[2026-03-31]** 🚀 项目主页、教程文档及开箱即用的二进制发布包已上线！访问 [carla-air.com](https://carla-air.com/)
 - **[2026-03]** `v0.1.7` 发布 -- VSync 修复、稳定交通系统、一键环境配置、无人机录制工具、坐标系文档
 - **[2026-03]** `v0.1.6` 发布 -- 自动交通生成、UE4 原生 Sweep 碰撞、地面夹紧系统
 - **[2026-03]** `v0.1.5` 发布 -- 12 方向碰撞系统、双语帮助菜单（`H`）
@@ -406,7 +412,7 @@ CARLA-Air 旨在支持空地一体具身智能的四大研究方向：
 - [x] 一键环境配置
 - [x] 录制工具（车辆、无人机、行人轨迹）
 - [x] 技术报告（[PDF](docs/pdf/CarlaAir.pdf)）
-- [ ] 项目主页（开发中）
+- [x] 项目主页（[carla-air.com](https://carla-air.com/)）
 - [ ] 教程文档
 - [ ] 3DGS 渲染管线集成
 - [ ] World Model 集成

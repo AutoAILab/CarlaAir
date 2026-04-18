@@ -9,8 +9,9 @@
 set -e
 
 # ========================== Configuration ==========================
-UE4_ROOT="/mnt/data1/tianle/carla_ue4"
-PROJECT="/mnt/data1/tianle/carla_source/Unreal/CarlaUE4/CarlaUE4.uproject"
+UE4_ROOT="${UE4_ROOT:?Please set UE4_ROOT to your UE4 4.26 installation}"   # e.g. /opt/carla_ue4
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT="${SCRIPT_DIR}/../../Unreal/CarlaUE4/CarlaUE4.uproject"   # auto-detect from repo root
 LOGFILE="/tmp/carla_simworld.log"
 
 DEFAULT_MAP="Town10HD"
