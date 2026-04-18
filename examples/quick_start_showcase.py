@@ -258,12 +258,12 @@ def main():
         pygame_started = True
 
         # ── Phase 2: Start driving (Traffic Manager) ──
-        tm = carla_client.get_trafficmanager(8000)
+        tm = carla_client.get_trafficmanager(8005)
         tm.set_global_distance_to_leading_vehicle(2.5)
         tm.global_percentage_speed_difference(-100.0)  # 2x speed limit (~80-90 km/h)
         tm.set_hybrid_physics_mode(True)
         tm.set_hybrid_physics_radius(50.0)
-        vehicle.set_autopilot(True, 8000)
+        vehicle.set_autopilot(True, 8005)
         tm.ignore_lights_percentage(vehicle, 100)      # don't stop at lights for demo
         tm.auto_lane_change(vehicle, False)
         tm.distance_to_leading_vehicle(vehicle, 5.0)

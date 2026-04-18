@@ -1,5 +1,6 @@
 import numpy as np
 import os
+from scipy.spatial.transform import Rotation as R
 
 class GeometryUtils:
     @staticmethod
@@ -50,6 +51,15 @@ class GeometryUtils:
         
         # Order for CARLA: Yaw -> Pitch -> Roll (Z * Y * X)
         return R_z @ R_y @ R_x
+
+    @staticmethod
+    def euler_to_quaternion(pitch, yaw, roll):
+        """Converts CARLA Euler angles to a unit quaternion [qw, qx, qy, qz]."""
+        # scipy uses [x, y, z, w] order for its internal representation
+        # CARLA uses (intrinsic) rotations: Yaw(Z), then Pitch(Y), then Roll(X)
+        rot = R.from_euler('zyx', [yaw, pitch, roll], degrees=True)
+        quat = rot.as_quat() # returns [qx, qy, qz, qw]
+        return [quat[3], quat[0], quat[1], quat[2]]
 
     @staticmethod
     def camera_to_world(points, transform_dict, is_airsim=True, global_offset=None):

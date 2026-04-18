@@ -1,0 +1,8 @@
+{
+    "num_frames": 100,
+    "mode": "record",
+    "route": "dataset_generation/trajectories/town10hd_urban_loop.json",
+    "fixed_dt": 0.05,
+    "viz_path": false,
+    "out": "data/production_verify_fast"
+}

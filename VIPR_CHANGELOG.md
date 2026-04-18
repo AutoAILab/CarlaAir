@@ -48,3 +48,11 @@
 - Fixed **AirSim Deadlock & BufferError**: Implemented a Dual-Client architecture and threaded gimbal initialization to ensure stability in Synchronous mode.
 - Developed `dataset_generation/trajectories/trim_route.py` to automate the removal of stationary waypoints from the start of recordings.
 
+
+## 2026-04-18
+- Completed `LiDAR.md`: Integrated high-fidelity LiDAR and OpenLABEL 1.0.0 spatial reconstruction.
+- Upgraded UGV LiDAR sensor to **64 channels** and **1,200,000 points/sec** for sub-centimeter architectural detail.
+- Implemented **High-Density Global Reconstruction**: 2cm voxel-refined pointcloud fusion with automatic UGV self-chassis filtering.
+- Established **Multi-Sensor Spatial Relations**: Every frame links temporal observations to a global Digital Twin via OpenLABEL `is_registered_to` relations (Option B).
+- Consolidated frame-wise JSONL logs into a single, structured `master_manifest.json` with top-level coordinate systems and streams.
+- Fixed `agcarla_datagen.py` stability issues in `--no-uavs` mode and corrected Python boolean syntax in manifest headers.

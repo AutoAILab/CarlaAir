@@ -1,0 +1,9 @@
+{
+    "num_frames": 814,
+    "mode": "record",
+    "route": "dataset_generation/trajectories/route_ugv_only_20260417_172852.json",
+    "fixed_dt": 0.05,
+    "no_uavs": true,
+    "viz_path": false,
+    "out": "data/ugv_only_run"
+}

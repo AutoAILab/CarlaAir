@@ -27,6 +27,7 @@ class AGCarlaGenerator:
         # AirSim Setup (Multi-Client Pool for Thread-Safety)
         self.uav_names = []
         self.uav_clients = {}
+        self.uav_ctrl_clients = {}
         
         if not args.no_uavs:
             try:
@@ -342,6 +343,13 @@ class AGCarlaGenerator:
             bp.set_attribute('image_size_x', str(self.args.width))
             bp.set_attribute('image_size_y', str(self.args.height))
             bp.set_attribute('fov', '110')
+        elif 'lidar' in bp_name:
+            bp.set_attribute('channels', '64')
+            bp.set_attribute('points_per_second', '1200000')
+            bp.set_attribute('range', '150.0')
+            bp.set_attribute('rotation_frequency', '20.0')
+            bp.set_attribute('upper_fov', '10.0')
+            bp.set_attribute('lower_fov', '-30.0')
             
         sensor = self.world.spawn_actor(bp, transform, attach_to=self.ugv)
         q = queue.Queue()
@@ -488,7 +496,7 @@ class AGCarlaGenerator:
         self.save_metadata(frame_id, frame_transforms)
         
         # 6. Append to OpenLabel Manifest
-        self.append_openlabel_frame(frame_id)
+        self.append_openlabel_frame(frame_id, frame_transforms)
         
         print(f"[TRACE] Frame {frame_id} Complete")
     def save_uav_data(self, frame_id, uav_name, responses):
@@ -597,10 +605,14 @@ class AGCarlaGenerator:
             
         return tags
 
-    def append_openlabel_frame(self, frame_id):
+    def append_openlabel_frame(self, frame_id, transforms):
         """Appends a frame entry to master_manifest.jsonl in OpenLABEL 1.0.0 format."""
         snapshot = self.world.get_snapshot()
         timestamp = snapshot.timestamp.elapsed_seconds
+        
+        # 1. Get UGV Pose (World Relative)
+        ugv_t = transforms.get('ugv', {})
+        ugv_quat = GeometryUtils.euler_to_quaternion(ugv_t.get('p', 0), ugv_t.get('yaw', 0), ugv_t.get('r', 0)) if ugv_t else [1, 0, 0, 0]
         
         # Construct frame-level metadata
         frame_data = {
@@ -617,24 +629,185 @@ class AGCarlaGenerator:
                             "tags": self.get_odd_tags(),
                             "external_resources": [
                                 {"name": "ugv_rgb", "url": f"images/ugv_{frame_id:06d}.png", "type": "image/png"},
-                                {"name": "ugv_gbuffer", "url": f"gbuffer/ugv_{frame_id:06d}.npz", "type": "application/x-npz"}
+                                {"name": "ugv_gbuffer", "url": f"gbuffer/ugv_{frame_id:06d}.npz", "type": "application/x-npz"},
+                                {"name": "ugv_lidar", "url": f"lidar/ugv_{frame_id:06d}.npy", "type": "application/x-numpy-ndarray"}
                             ]
+                        },
+                        "coordinate_systems": {
+                            "ego_vehicle": {
+                                "type": "local",
+                                "parent": "world",
+                                "pose_wrt_parent": {
+                                    "translation": [ugv_t.get('x', 0), ugv_t.get('y', 0), ugv_t.get('z', 0)],
+                                    "quaternion": ugv_quat
+                                }
+                            }
+                        },
+                        "relations": {
+                            "rel_ugv_lidar": {
+                                "name": "is_registered_to",
+                                "type": "spatial",
+                                "rdf_subjects": [f"stream/ugv_lidar/frame/{frame_id}"],
+                                "rdf_objects": ["stream/global_map_lidar"]
+                            }
                         }
                     }
                 }
             }
         }
         
-        # Add UAV resources
+        # Add UAV resources and relations
         for uav_name in self.uav_names:
+            uav_t = transforms['uavs'].get(uav_name, {})
+            uav_quat = [uav_t.get('qw', 1), uav_t.get('qx', 0), uav_t.get('qy', 0), uav_t.get('qz', 0)]
+            
+            # UAV Stream entry
             frame_data["openlabel"]["frames"][str(frame_id)]["frame_properties"]["external_resources"].extend([
                 {"name": f"{uav_name}_rgb", "url": f"images/{uav_name}_{frame_id:06d}.png", "type": "image/png"},
                 {"name": f"{uav_name}_gbuffer", "url": f"gbuffer/{uav_name}_{frame_id:06d}.npz", "type": "application/x-npz"}
             ])
-
+            
+            # UAV Coordinate System (Relative to world)
+            frame_data["openlabel"]["frames"][str(frame_id)]["coordinate_systems"][uav_name] = {
+                "type": "local",
+                "parent": "world",
+                "pose_wrt_parent": {
+                    "translation": [uav_t.get('x', 0), uav_t.get('y', 0), uav_t.get('z', 0)],
+                    "quaternion": uav_quat
+                }
+            }
+            
+            # UAV Spatial Relation to Global Reconstruction
+            frame_data["openlabel"]["frames"][str(frame_id)]["relations"][f"rel_{uav_name}_rgb"] = {
+                "name": "is_registered_to",
+                "type": "spatial",
+                "rdf_subjects": [f"stream/{uav_name}_rgb/frame/{frame_id}"],
+                "rdf_objects": ["stream/global_map_lidar"]
+            }
+ 
         manifest_path = os.path.join(self.output_dir, 'master_manifest.jsonl')
         with open(manifest_path, 'a') as f:
             f.write(json.dumps(frame_data) + '\n')
+
+    def finalize_manifest(self):
+        """Consolidates .jsonl frames into a single master_manifest.json and generates global reconstruction."""
+        print("\nFinalizing OpenLABEL Manifest...")
+        
+        # 1. Generate Global Reconstruction (.ply)
+        self.generate_global_reconstruction()
+        
+        # 2. Compile Master JSON
+        jsonl_path = os.path.join(self.output_dir, 'master_manifest.jsonl')
+        json_path = os.path.join(self.output_dir, 'master_manifest.json')
+        
+        if not os.path.exists(jsonl_path):
+            print("Warning: No manifest frames found to finalize.")
+            return
+
+        frames = {}
+        with open(jsonl_path, 'r') as f:
+            for line in f:
+                data = json.loads(line)
+                frame_id = list(data['openlabel']['frames'].keys())[0]
+                frames[frame_id] = data['openlabel']['frames'][frame_id]
+
+        master_data = {
+            "openlabel": {
+                "metadata": {
+                    "schema_version": "1.0.0",
+                    "generation_time": datetime.now().isoformat(),
+                    "creator": "AGCarla Generator"
+                },
+                "streams": {
+                    "global_map_lidar": {
+                        "type": "other",
+                        "uri": "maps/global_reconstruction.ply",
+                        "stream_properties": {
+                            "is_static": True,
+                            "coordinate_system": "world",
+                            "encoding": "point_cloud_binary"
+                        }
+                    },
+                    "ugv_lidar": {"type": "lidar", "uri": "lidar/"},
+                    "ugv_rgb": {"type": "camera", "uri": "images/"}
+                },
+                "coordinate_systems": {
+                    "world": {"type": "global", "parent": ""}
+                },
+                "frames": frames
+            }
+        }
+        
+        # Add UAV streams to master manifest
+        for uav_name in self.uav_names:
+            master_data["openlabel"]["streams"][f"{uav_name}_rgb"] = {"type": "camera", "uri": "images/"}
+
+        with open(json_path, 'w') as f:
+            json.dump(master_data, f, indent=4)
+        
+        print(f"Master manifest saved to: {json_path}")
+
+    def generate_global_reconstruction(self):
+        """Merges all frame point clouds into a single global .ply file."""
+        print("Generating Global Reconstruction...")
+        maps_dir = os.path.join(self.output_dir, 'maps')
+        os.makedirs(maps_dir, exist_ok=True)
+        
+        master_cloud = []
+        # Target ~200 frames for high-fidelity reconstruction (or all if < 200)
+        frame_ids = sorted(list(self.recording.keys()))
+        sample_step = max(1, len(frame_ids) // 200) 
+        
+        for frame_id in frame_ids[::sample_step]:
+            meta = self.recording[frame_id]
+            global_offset = self.global_offset
+            
+            # A. UGV Lidar (More accurate than depth)
+            lidar_path = os.path.join(self.output_dir, 'lidar', f'ugv_{frame_id:06d}.npy')
+            if os.path.exists(lidar_path):
+                pts = np.load(lidar_path)[:, :3]
+                
+                # Filter self-chassis (points within 3.0m of sensor origin)
+                dist_to_sensor = np.linalg.norm(pts, axis=1)
+                pts = pts[dist_to_sensor > 3.0]
+                
+                # CARLA Lidar is mounted at Z=2.5, but points are relative to sensor
+                # We need to add mount offset before world transform
+                p_actor = pts + np.array([0, 0, 2.5])
+                p_world = GeometryUtils.camera_to_world(p_actor, meta['ugv'], is_airsim=False)
+                master_cloud.append(p_world)
+
+            # B. UAV Depth (Aerial coverage)
+            for uav_name in meta['uavs'].keys():
+                uav_gb_path = os.path.join(self.output_dir, 'gbuffer', f'{uav_name}_{frame_id:06d}.npz')
+                if os.path.exists(uav_gb_path):
+                    uav_gb = np.load(uav_gb_path)
+                    depth = uav_gb['depth']
+                    h, w = depth.shape
+                    # Filter far points for clean map
+                    mask = (depth > 2.0) & (depth < 60.0)
+                    if not np.any(mask): continue
+                    
+                    ray_map = GeometryUtils.get_ray_map(w, h)
+                    p_local = ray_map[mask] * depth[mask][:, np.newaxis]
+                    p_actor_mounted = p_local + np.array([0.5, 0, 0.1])
+                    p_world = GeometryUtils.camera_to_world(p_actor_mounted, meta['uavs'][uav_name], 
+                                                           is_airsim=True, global_offset=global_offset)
+                    master_cloud.append(p_world)
+
+        if master_cloud:
+            full_cloud = np.concatenate(master_cloud, axis=0)
+            # High-fidelity voxel downsampling (2cm grid)
+            if len(full_cloud) > 100000:
+                print(f"  Refining cloud ({len(full_cloud)} points)...")
+                # 2cm grid = multiply by 50, round, divide by 50
+                full_cloud = np.unique(np.round(full_cloud * 50) / 50, axis=0)
+            
+            out_path = os.path.join(maps_dir, 'global_reconstruction.ply')
+            GeometryUtils.save_ply(out_path, full_cloud)
+            print(f"  Reconstruction saved to: {out_path} ({len(full_cloud)} points)")
+        else:
+            print("  Warning: No points found for reconstruction.")
 
     def cleanup(self):
         """Safe cleanup of CARLA and AirSim actors."""
@@ -714,9 +887,11 @@ if __name__ == "__main__":
             gen.register_route_actors()
         # Initialize Ray Map once
         gen.get_ray_map()
-        
         for i in range(args.num_frames):
             gen.capture_frame(i)
             print(f"Captured Frame {i}")
+        
+        # 4. Finalize
+        gen.finalize_manifest()
     finally:
         gen.cleanup()
