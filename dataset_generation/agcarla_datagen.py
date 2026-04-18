@@ -35,8 +35,15 @@ class AGCarlaGenerator:
                 bootstrap_client.confirmConnection()
                 self.uav_names = bootstrap_client.listVehicles()
                 
-                # Filter UAVs to only those mentioned in the route (if provided)
-                if args.route:
+                # Filter UAVs: Priority (uav_names > route_map > route > all)
+                if args.uav_names:
+                    self.uav_names = [n for n in self.uav_names if n in args.uav_names]
+                    print(f"Filtered UAV list to explicit names: {self.uav_names}")
+                elif args.route_map:
+                    map_actors = list(args.route_map.keys())
+                    self.uav_names = [n for n in self.uav_names if n in map_actors]
+                    print(f"Filtered UAV list to route_map actors: {self.uav_names}")
+                elif args.route:
                     try:
                         with open(args.route, 'r') as f:
                             route_data = json.load(f)
@@ -120,10 +127,11 @@ class AGCarlaGenerator:
         
         # Motion Management
         self.motion_manager = None
-        if args.route:
+        if args.route or args.route_map:
             # Pass our dedicated control clients to the motion manager
             self.motion_manager = MotionManager(self.world, self.uav_ctrl_clients, self.global_offset)
-            self.load_route(args.route)
+            if args.route:
+                self.load_route(args.route)
         
         # Swarm Offsets Configuration (Height, HorizontalBackOffset, PitchDeg)
         self.swarm_config = {
@@ -177,6 +185,30 @@ class AGCarlaGenerator:
     def _register_single_actor(self, entry):
         """Internal helper to register a single actor entry from route data."""
         actor_id_str = entry['id']
+        entry_type = entry.get('type', '').lower()
+        
+        # 1. Type Inference (Support legacy recordings without explicit type)
+        if not entry_type or entry_type == 'unknown':
+            if actor_id_str.startswith('UAV'):
+                entry_type = 'drone'
+            elif actor_id_str.startswith('UGV'):
+                entry_type = 'car'
+            print(f"  [DEBUG] Inferred type '{entry_type}' for {actor_id_str}")
+
+        # 2. Strict Platform Validation
+        if actor_id_str.startswith('UGV'):
+            if entry_type not in ['car', 'vehicle']:
+                print(f"Error: {actor_id_str} rejected route of type '{entry_type}'. Expected 'car' or 'vehicle'.")
+                return
+        elif actor_id_str.startswith('UAV'):
+            if entry_type != 'drone':
+                print(f"Error: {actor_id_str} rejected route of type '{entry_type}'. Expected 'drone'.")
+                return
+        
+        # 3. Mode Enforcement (Prioritize Replay if path is given)
+        if entry.get('path') and entry.get('mode') != 'lead':
+            print(f"  [DEBUG] Forcing {actor_id_str} to 'lead' mode (Trajectory detected).")
+            entry['mode'] = 'lead'
         
         # Application of perspective presets
         perspective_name = self.args.perspective.lower()
@@ -349,7 +381,7 @@ class AGCarlaGenerator:
             uav_client = self.uav_clients[uav_name]
             
             # 2a. Manual Swarm Chase (Legacy/Record Mode only - Skip if using waypoint-based route)
-            if self.args.mode == 'record' and not self.args.route:
+            if self.args.mode == 'record' and not (self.args.route or self.args.route_map):
                 # Get swarm configuration for this drone
                 # Fallback to defaults if name not in config mapping
                 height, back_offset, pitch_deg = self.swarm_config.get(uav_name, (30, 12, -45))
@@ -605,11 +637,34 @@ class AGCarlaGenerator:
             f.write(json.dumps(frame_data) + '\n')
 
     def cleanup(self):
+        """Safe cleanup of CARLA and AirSim actors."""
         print("Cleaning up actors...")
-        self.world.apply_settings(self.original_settings)
+        
+        # 1. Restore CARLA settings (wrapped in try/except to avoid msgpack cast errors)
+        try:
+            if hasattr(self, 'original_settings'):
+                self.world.apply_settings(self.original_settings)
+        except Exception as e:
+            print(f"  [DEBUG] Warning: Could not restore CARLA settings: {e}")
+
+        # 2. Stop and Destroy CARLA actors
         for actor in self.actor_list:
-            if actor.is_alive:
-                actor.destroy()
+            try:
+                if actor is not None and actor.is_alive:
+                    if hasattr(actor, 'stop'):
+                        actor.stop() # Stop sensor listeners first
+                    actor.destroy()
+            except Exception as e:
+                # Silently fail on individual actor destruction to allow others to be cleaned
+                pass
+        
+        # 3. Release AirSim control
+        for name, client in self.uav_ctrl_clients.items():
+            try:
+                client.armDisarm(False, vehicle_name=name)
+                client.enableApiControl(False, vehicle_name=name)
+            except: pass
+
         print("Done.")
 
 if __name__ == "__main__":
