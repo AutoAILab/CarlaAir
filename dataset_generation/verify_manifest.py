@@ -1,12 +1,16 @@
 import json
 import os
 import argparse
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 def validate_manifest(manifest_path):
-    print(f"\n=== OpenLabel Manifest Validation: {os.path.basename(manifest_path)} ===")
+    logging.info(f"=== OpenLabel Manifest Validation: {os.path.basename(manifest_path)} ===")
     
     if not os.path.exists(manifest_path):
-        print(f"Error: Manifest not found at {manifest_path}")
+        logging.error(f"Manifest not found at {manifest_path}")
         return False
         
     valid_count = 0
@@ -18,20 +22,20 @@ def validate_manifest(manifest_path):
                 data = json.loads(line)
                 # Check top-level key
                 if 'openlabel' not in data:
-                    print(f"  [Line {i}] Missing 'openlabel' root key.")
+                    logging.error(f"  [Line {i}] Missing 'openlabel' root key.")
                     error_count += 1
                     continue
                 
                 ol = data['openlabel']
                 # Check metadata
                 if 'metadata' not in ol:
-                    print(f"  [Line {i}] Missing 'metadata' section.")
+                    logging.error(f"  [Line {i}] Missing 'metadata' section.")
                     error_count += 1
                     continue
                 
                 # Check frames
                 if 'frames' not in ol:
-                    print(f"  [Line {i}] Missing 'frames' section.")
+                    logging.error(f"  [Line {i}] Missing 'frames' section.")
                     error_count += 1
                     continue
                 
@@ -42,24 +46,24 @@ def validate_manifest(manifest_path):
                     for res in resources:
                         res_path = os.path.join(base_dir, res['url'])
                         if not os.path.exists(res_path):
-                            print(f"  [Line {i}] Resource missing: {res['url']}")
+                            logging.error(f"  [Line {i}] Resource missing: {res['url']}")
                             error_count += 1
                 
                 valid_count += 1
             except Exception as e:
-                print(f"  [Line {i}] JSON Parse Error: {e}")
+                logging.error(f"  [Line {i}] JSON Parse Error: {e}")
                 error_count += 1
                 
-    print(f"\nValidation Summary:")
-    print(f"  Total Lines: {valid_count + error_count}")
-    print(f"  Valid Frames: {valid_count}")
-    print(f"  Errors: {error_count}")
+    logging.info("Validation Summary:")
+    logging.info(f"  Total Lines: {valid_count + error_count}")
+    logging.info(f"  Valid Frames: {valid_count}")
+    logging.info(f"  Errors: {error_count}")
     
     if error_count == 0 and valid_count > 0:
-        print("\nPASS: OpenLabel manifest follows schema and all resources are present.")
+        logging.info("PASS: OpenLabel manifest follows schema and all resources are present.")
         return True
     else:
-        print("\nFAIL: Manifest validation failed.")
+        logging.error("FAIL: Manifest validation failed.")
         return False
 
 if __name__ == "__main__":

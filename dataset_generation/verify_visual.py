@@ -1,19 +1,31 @@
 import os
 import argparse
+import logging
 from PIL import Image
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 def create_sync_gif(data_dir, output_name='sync_check.gif', sample_rate=10):
     images_dir = os.path.join(data_dir, 'images')
     verification_dir = os.path.join(data_dir, 'verification')
     os.makedirs(verification_dir, exist_ok=True)
     
+    if not os.path.exists(images_dir):
+        logging.error(f"Images directory not found: {images_dir}")
+        return
+
     # Find all frame IDs based on UGV images
     ugv_files = sorted([f for f in os.listdir(images_dir) if f.startswith('ugv_') and f.endswith('.png')])
+    if not ugv_files:
+        logging.error("No UGV images found to determine frame IDs.")
+        return
+        
     frame_ids = [int(f.split('_')[1].split('.')[0]) for f in ugv_files]
     
     # Sample frames
     sampled_ids = frame_ids[::sample_rate]
-    print(f"Sampling {len(sampled_ids)} frames for Sync GIF (2Hz equivalent)...")
+    logging.info(f"Sampling {len(sampled_ids)} frames for Sync GIF (2Hz equivalent)...")
     
     frames = []
     for fid in sampled_ids:
@@ -21,7 +33,7 @@ def create_sync_gif(data_dir, output_name='sync_check.gif', sample_rate=10):
         uav_path = os.path.join(images_dir, f'UAV_1_{fid:06d}.png')
         
         if not os.path.exists(ugv_path) or not os.path.exists(uav_path):
-            print(f"Warning: Skipping frame {fid}, missing image.")
+            logging.warning(f"Skipping frame {fid}, missing image (UGV or UAV_1).")
             continue
             
         img_ugv = Image.open(ugv_path)
@@ -36,17 +48,14 @@ def create_sync_gif(data_dir, output_name='sync_check.gif', sample_rate=10):
         combined.paste(img_ugv, (0, 0))
         combined.paste(img_uav, (img_ugv.width, 0))
         
-        # Add frame ID text overlay (optional, but good for debugging)
-        # For simplicity, we skip text overlay to avoid dependency on fonts in PIL
-        
         frames.append(combined)
     
     if frames:
         output_path = os.path.join(verification_dir, output_name)
         frames[0].save(output_path, format='GIF', append_images=frames[1:], save_all=True, duration=500, loop=0)
-        print(f"Sync GIF saved to: {output_path}")
+        logging.info(f"Sync GIF saved to: {output_path}")
     else:
-        print("Error: No frames found to create GIF.")
+        logging.error("No frames found to create GIF.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

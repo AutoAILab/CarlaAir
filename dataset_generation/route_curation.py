@@ -17,7 +17,11 @@ import os
 import json
 import argparse
 import numpy as np
+import logging
 from datetime import datetime
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 class RouteCurator:
     def __init__(self, input_dir):
@@ -26,6 +30,10 @@ class RouteCurator:
 
     def load_metadata(self):
         """Loads all frame metadata and groups by actor."""
+        if not os.path.exists(self.metadata_dir):
+            logging.error(f"Metadata directory not found: {self.metadata_dir}")
+            return {}
+            
         files = sorted([f for f in os.listdir(self.metadata_dir) if f.endswith('.json')])
         actor_tracks = {}
 
@@ -41,9 +49,6 @@ class RouteCurator:
 
                 # UAVs
                 for name, p in data.get('uavs', {}).items():
-                    # Note: UAV data in metadata is in AirSim NED. 
-                    # We might want to convert back to CARLA for curation if needed,
-                    # but for now we store as is.
                     if name not in actor_tracks: actor_tracks[name] = []
                     actor_tracks[name].append({'x': p['x'], 'y': p['y'], 'z': p['z']})
 
@@ -54,7 +59,10 @@ class RouteCurator:
         """Distance from point p to line segment ab."""
         pa = p - a
         ba = b - a
-        t = np.dot(pa, ba) / np.dot(ba, ba)
+        dot_ba = np.dot(ba, ba)
+        if dot_ba == 0:
+            return np.linalg.norm(pa)
+        t = np.dot(pa, ba) / dot_ba
         t = np.clip(t, 0, 1)
         dist = np.linalg.norm(pa - t * ba)
         return dist
@@ -91,12 +99,15 @@ class RouteCurator:
         return results
 
     def curate(self, output_path, epsilon=1.0):
-        print(f"Loading metadata from {self.input_dir}...")
+        logging.info(f"Loading metadata from {self.input_dir}...")
         tracks = self.load_metadata()
+        if not tracks:
+            logging.warning("No tracks found to curate.")
+            return
         
         route = []
         for actor_id, track in tracks.items():
-            print(f"Processing track for {actor_id} (Length: {len(track)})...")
+            logging.info(f"Processing track for {actor_id} (Length: {len(track)})...")
             sparse_path = self.rdp_downsample(track, epsilon)
             
             mode = 'lead' if 'UGV' in actor_id else 'follow'
@@ -110,12 +121,12 @@ class RouteCurator:
                 entry['temporal_lag'] = 1.0
                 entry['offset'] = {'x': -10, 'y': 0, 'z': 20}
             
-            route.append(entry)
-
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            parent_dir = os.path.dirname(output_path)
+        if parent_dir:
+            os.makedirs(parent_dir, exist_ok=True)
         with open(output_path, 'w') as f:
             json.dump(route, f, indent=4)
-        print(f"Successfully saved curated route to {output_path}")
+        logging.info(f"Successfully saved curated route to {output_path}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

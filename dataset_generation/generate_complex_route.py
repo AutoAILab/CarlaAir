@@ -19,6 +19,10 @@ import json
 import argparse
 import carla
 import numpy as np
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 # Ensure CARLA agents are in path
 # Try to find the absolute path to the repo root
@@ -29,9 +33,9 @@ sys.path.append(AGENT_PATH)
 try:
     from agents.navigation.global_route_planner import GlobalRoutePlanner
 except ImportError as e:
-    print(f"Error: Could not import GlobalRoutePlanner: {e}")
-    print(f"Looked in: {AGENT_PATH}")
-    print(f"sys.path current: {sys.path}")
+    logging.error(f"Could not import GlobalRoutePlanner: {e}")
+    logging.error(f"Looked in: {AGENT_PATH}")
+    logging.error(f"sys.path current: {sys.path}")
     sys.exit(1)
 
 class ProductionRoutePlanner:
@@ -51,7 +55,7 @@ class ProductionRoutePlanner:
         start_loc = spawn_points[start_idx].location
         end_loc = spawn_points[end_idx].location
         
-        print(f"Planning route from SP {start_idx} to SP {end_idx}...")
+        logging.info(f"Planning route from SP {start_idx} to SP {end_idx}...")
         results = self.grp.trace_route(start_loc, end_loc)
         
         path = []
@@ -116,7 +120,7 @@ class ProductionRoutePlanner:
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         with open(output_path, 'w') as f:
             json.dump(route_config, f, indent=4)
-        print(f"Production route saved to {output_path}")
+        logging.info(f"Production route saved to {output_path}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -126,6 +130,16 @@ if __name__ == "__main__":
     parser.add_argument('--out', required=True)
     args = parser.parse_args()
 
-    planner = ProductionRoutePlanner()
-    path = planner.generate_route(args.start, args.end, args.speed)
-    planner.create_production_bundle(path, args.out, args.speed)
+    planner = None
+    try:
+        planner = ProductionRoutePlanner()
+        path = planner.generate_route(args.start, args.end, args.speed)
+        planner.create_production_bundle(path, args.out, args.speed)
+    except Exception as e:
+        logging.error(f"Error during route generation: {e}")
+    finally:
+        if planner:
+            logging.info("Cleaning up ProductionRoutePlanner...")
+            # Any specific cleanup for planner can go here
+            del planner
+

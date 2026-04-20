@@ -5,6 +5,10 @@ import shutil
 import numpy as np
 import json
 import sys
+import logging
+
+# Configure logging for tests
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 # Add the directory to sys.path to import the script
 sys.path.append(os.path.join(os.getcwd(), 'dataset_generation'))
@@ -14,15 +18,18 @@ class TestAGCarlaGenerator(unittest.TestCase):
     def setUp(self):
         # Create a mock args object
         self.args = MagicMock()
-        self.args.host = '127.0.0.1'
-        self.args.port = 2000
-        self.args.airsim_port = 41451
         self.args.tm_port = 8000
         self.args.width = 1280
         self.args.height = 720
         self.args.mode = 'record'
         self.args.out = 'mock_test_output'
         self.args.num_frames = 2
+        self.args.route = None
+        self.args.route_map = None
+        self.args.config = None
+        self.args.uav_names = None # Ensure we don't try to filter based on a mock
+        self.args.no_uavs = False # Explicitly disable the skip flag
+        self.args.no_ugv = False
 
         # Patch the Client connections
         self.patch_carla = patch('carla.Client')
@@ -52,6 +59,15 @@ class TestAGCarlaGenerator(unittest.TestCase):
         mock_snapshot = MagicMock()
         mock_snapshot.timestamp.elapsed_seconds = 0.0
         self.mock_world.get_snapshot.return_value = mock_snapshot
+        
+        # Setup mock global offset
+        # The generator calls calibrate_global_offsets on init
+        # We need a drone actor in the mock world for it
+        mock_drone = MagicMock()
+        mock_drone.type_id = "drone"
+        mock_drone.get_location.return_value = MagicMock(x=0, y=0, z=0)
+        self.mock_world.get_actors.return_value = [mock_drone]
+        self.mock_airsim.return_value.getMultirotorState.return_value.kinematics_estimated.position = MagicMock(x_val=0, y_val=0, z_val=0)
 
     def tearDown(self):
         self.patch_carla.stop()
@@ -69,10 +85,10 @@ class TestAGCarlaGenerator(unittest.TestCase):
         gen = AGCarlaGenerator(self.args)
         ray_map = gen.get_ray_map()
         self.assertEqual(ray_map.shape, (720, 1280, 3))
-        # Center ray should be normalized and pointing forward (near [0, 0, 1])
+        # Center ray should be normalized and pointing forward (Index 0 is Forward in CARLA camera)
         center_ray = ray_map[360, 640]
         self.assertAlmostEqual(np.linalg.norm(center_ray), 1.0, places=5)
-        self.assertTrue(center_ray[2] > 0.8) # Forward-looking
+        self.assertTrue(center_ray[0] > 0.8) # Forward-looking check
 
     def test_metadata_serialization(self):
         gen = AGCarlaGenerator(self.args)
@@ -106,7 +122,12 @@ class TestAGCarlaGenerator(unittest.TestCase):
         # Mock world snapshot for timestamp
         self.mock_world.get_snapshot.return_value.timestamp.elapsed_seconds = 1234.56
         
-        gen.append_openlabel_frame(0)
+        # Provide a minimal mock transform for ugv/uavs
+        mock_transforms = {
+            'ugv': {'x': 0, 'y': 0, 'z': 0, 'p': 0, 'yaw': 0, 'r': 0},
+            'uavs': {'UAV_1': {'x': 0, 'y': 0, 'z': 0, 'qw': 1, 'qx': 0, 'qy': 0, 'qz': 0}}
+        }
+        gen.append_openlabel_frame(0, mock_transforms)
         
         manifest_file = os.path.join(gen.output_dir, 'master_manifest.jsonl')
         self.assertTrue(os.path.exists(manifest_file))

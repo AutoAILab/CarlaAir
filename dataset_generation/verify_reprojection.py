@@ -5,18 +5,22 @@ import argparse
 import cv2
 from PIL import Image
 import sys
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 # Ensure we can find GeometryUtils
 sys.path.append(os.getcwd())
 from dataset_generation.geometry import GeometryUtils
 
 def verify_reprojection(data_dir, frame_id=5):
-    print(f"\n=== Reprojection Alignment Diagnostic ===")
-    print(f"Directory: {data_dir} | Frame: {frame_id}")
+    logging.info(f"=== Reprojection Alignment Diagnostic ===")
+    logging.info(f"Directory: {data_dir} | Frame: {frame_id}")
     
     metadata_path = os.path.join(data_dir, 'metadata', f'{frame_id:06d}.json')
     if not os.path.exists(metadata_path):
-        print(f"Error: Metadata not found at {metadata_path}")
+        logging.error(f"Metadata not found at {metadata_path}")
         return
 
     with open(metadata_path, 'r') as f:
@@ -27,25 +31,30 @@ def verify_reprojection(data_dir, frame_id=5):
     rgb_path = os.path.join(data_dir, 'images', f'ugv_{frame_id:06d}.png')
     
     if not os.path.exists(lidar_path) or not os.path.exists(rgb_path):
-        print("Error: LiDAR or RGB files missing.")
+        logging.error("LiDAR or RGB files missing.")
         return
         
     lidar_pts = np.load(lidar_path)[:, :3]
     rgb_img = cv2.imread(rgb_path)
+    if rgb_img is None:
+        logging.error(f"Could not load image: {rgb_path}")
+        return
     h, w, _ = rgb_img.shape
     
     # 2. Project LiDAR to World
     stf_lidar = meta.get('sensor_tf', {}).get('ugv_lidar')
     if not stf_lidar:
-        print("Error: No absolute sensor_tf found in metadata. Run a new capture.")
+        logging.error("No absolute sensor_tf found in metadata. Run a new capture.")
         return
         
     p_world = GeometryUtils.camera_to_world(lidar_pts, stf_lidar, is_airsim=False)
     
     # 3. Project World to Camera Local
     stf_cam = meta.get('sensor_tf', {}).get('ugv_rgb')
+    if not stf_cam:
+        logging.error("No camera sensor_tf found in metadata.")
+        return
     
-    # P_cam_local = R_cam_inv * (P_world - Pos_cam)
     pos_cam = np.array([stf_cam['x'], stf_cam['y'], stf_cam['z']])
     R_cam = GeometryUtils.get_rotation_matrix(stf_cam['p'], stf_cam['yaw'], stf_cam['r'])
     # R is orthogonal, so inverse is transpose
@@ -62,8 +71,6 @@ def verify_reprojection(data_dir, frame_id=5):
     front_mask = p_cam_local[:, 0] > 0.1
     p_front = p_cam_local[front_mask]
     
-    # u = width/2 + (y * f / x)
-    # v = height/2 - (z * f / x)
     u = (w / 2.0) + (p_front[:, 1] * f / p_front[:, 0])
     v = (h / 2.0) - (p_front[:, 2] * f / p_front[:, 0])
     
@@ -78,8 +85,8 @@ def verify_reprojection(data_dir, frame_id=5):
 
     out_path = f"reprojection_debug_{frame_id}.png"
     cv2.imwrite(out_path, rgb_img)
-    print(f"Reprojection debug image saved to: {out_path}")
-    print(f"Diagnostic Complete.")
+    logging.info(f"Reprojection debug image saved to: {out_path}")
+    logging.info("Diagnostic Complete.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

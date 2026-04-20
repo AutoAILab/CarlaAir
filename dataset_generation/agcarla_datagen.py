@@ -9,6 +9,7 @@ import queue
 import numpy as np
 import threading
 import concurrent.futures
+import logging
 from datetime import datetime
 from PIL import Image
 import io
@@ -17,6 +18,10 @@ from motion import MotionManager
 
 class AGCarlaGenerator:
     def __init__(self, args):
+        # Configure logging
+        log_level = logging.DEBUG if args.config and getattr(args, 'debug', False) else logging.INFO
+        logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
+        
         self.args = args
         self.client_carla = carla.Client(args.host, args.port)
         self.client_carla.set_timeout(20.0)
@@ -39,27 +44,27 @@ class AGCarlaGenerator:
                 # Filter UAVs: Priority (uav_names > route_map > route > all)
                 if args.uav_names:
                     self.uav_names = [n for n in self.uav_names if n in args.uav_names]
-                    print(f"Filtered UAV list to explicit names: {self.uav_names}")
+                    logging.info(f"Filtered UAV list to explicit names: {self.uav_names}")
                 elif args.route_map:
                     map_actors = list(args.route_map.keys())
                     self.uav_names = [n for n in self.uav_names if n in map_actors]
-                    print(f"Filtered UAV list to route_map actors: {self.uav_names}")
+                    logging.info(f"Filtered UAV list to route_map actors: {self.uav_names}")
                 elif args.route:
                     try:
                         with open(args.route, 'r') as f:
                             route_data = json.load(f)
                             route_actors = {e['id'] for e in route_data}
                             self.uav_names = [n for n in self.uav_names if n in route_actors]
-                            print(f"Filtered UAV list to {len(self.uav_names)} vehicles defined in route.")
+                            logging.info(f"Filtered UAV list to {len(self.uav_names)} vehicles defined in route.")
                     except Exception as e:
-                        print(f"Warning: Could not filter UAVs from route: {e}")
+                        logging.warning(f"Could not filter UAVs from route: {e}")
 
-                print(f"Initializing AirSim Client Pool for {len(self.uav_names)} vehicles...")
+                logging.info(f"Initializing AirSim Client Pool for {len(self.uav_names)} vehicles...")
                 self.uav_clients = {}      # Sensor/Image Clients
                 self.uav_ctrl_clients = {} # Motion/Control Clients
                 
                 for name in self.uav_names:
-                    print(f"  [DEBUG] Connecting to {name}...")
+                    logging.debug(f"Connecting to {name}...")
                     
                     # Connection 1: Sensors
                     s_client = airsim.MultirotorClient(port=args.airsim_port)
@@ -73,22 +78,22 @@ class AGCarlaGenerator:
                     c_client.armDisarm(True, vehicle_name=name)
                     self.uav_ctrl_clients[name] = c_client
                     
-                    print(f"  [DEBUG] {name} ready (dual-connection established).")
+                    logging.debug(f"{name} ready (dual-connection established).")
             except Exception as e:
-                print(f"Warning: Could not connect to AirSim: {e}. UAV capture will be skipped.")
+                logging.warning(f"Could not connect to AirSim: {e}. UAV capture will be skipped.")
         else:
-            print("UAV capture disabled via --no-uavs flag.")
+            logging.info("UAV capture disabled via --no-uavs flag.")
         
         # 3. Calibrate CARLA-AirSim Coordinate Offset
         self.global_offset = self.calibrate_global_offsets()
-        print(f"Global Coordinate Offset Calibrated: {self.global_offset}")
+        logging.info(f"Global Coordinate Offset Calibrated: {self.global_offset}")
         
         self.recording = {} # Frame ID -> Actor Transforms
         
         # Threading for headless sync stability
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
         
-        print(f"Connected to AirSim Swarm: {self.uav_names}")
+        logging.info(f"Connected to AirSim Swarm: {self.uav_names}")
 
         # Sync Mode Setup
         self.original_settings = self.world.get_settings()
@@ -104,16 +109,16 @@ class AGCarlaGenerator:
         try:
             self.traffic_manager = self.client_carla.get_trafficmanager(8005)
             self.traffic_manager.set_synchronous_mode(True)
-            print("Connected to Traffic Manager on port 8005.")
+            logging.info("Connected to Traffic Manager on port 8005.")
         except Exception as e:
-            print(f"Warning: Could not bind to TM on 8005, attempting default: {e}")
+            logging.warning(f"Could not bind to TM on 8005, attempting default: {e}")
             try:
                 self.traffic_manager = self.client_carla.get_trafficmanager()
                 self.traffic_manager.set_synchronous_mode(True)
-                print("Connected to default Traffic Manager.")
+                logging.info("Connected to default Traffic Manager.")
             except Exception as e2:
-                print(f"Error: All Traffic Manager connection attempts failed: {e2}")
-                print("Proceeding without Traffic Manager (Traffic may not be synchronized).")
+                logging.error(f"All Traffic Manager connection attempts failed: {e2}")
+                logging.info("Proceeding without Traffic Manager (Traffic may not be synchronized).")
                 self.traffic_manager = None
         
         self.actor_list = []
@@ -152,16 +157,17 @@ class AGCarlaGenerator:
 
     def load_route(self, route_path):
         """Loads route JSON data for later registration."""
+        logging.info(f"Loading Route: {route_path}")
         with open(route_path, 'r') as f:
             self.route_data = json.load(f)
-        print(f"Loaded Route: {route_path} ({len(self.route_data)} actors defined)")
+        logging.info(f"Loaded Route ({len(self.route_data)} actors defined)")
             
     def register_route_actors(self):
         """Registers and spawns actors defined in the route data or route map."""
         # 1. Process Route Map (Explicit Actor -> File mapping)
         self.routed_actors = set()
         if self.args.route_map:
-            print(f"Loading actors from route_map...")
+            logging.info(f"Loading actors from route_map...")
             for actor_id_str, route_path in self.args.route_map.items():
                 try:
                     with open(route_path, 'r') as f:
@@ -178,9 +184,9 @@ class AGCarlaGenerator:
                             found = True
                             break
                     if not found:
-                        print(f"Warning: Could not find actor {actor_id_str} in {route_path}")
+                        logging.warning(f"Could not find actor {actor_id_str} in {route_path}")
                 except Exception as e:
-                    print(f"Error loading route map for {actor_id_str}: {e}")
+                    logging.error(f"Error loading route map for {actor_id_str}: {e}")
 
         # 2. Process Default Route File (Fallback/General)
         if hasattr(self, 'route_data') and self.route_data:
@@ -202,21 +208,21 @@ class AGCarlaGenerator:
                 entry_type = 'drone'
             elif actor_id_str.startswith('UGV'):
                 entry_type = 'car'
-            print(f"  [DEBUG] Inferred type '{entry_type}' for {actor_id_str}")
+            logging.debug(f"Inferred type '{entry_type}' for {actor_id_str}")
 
         # 2. Strict Platform Validation
         if actor_id_str.startswith('UGV'):
             if entry_type not in ['car', 'vehicle']:
-                print(f"Error: {actor_id_str} rejected route of type '{entry_type}'. Expected 'car' or 'vehicle'.")
+                logging.warning(f"{actor_id_str} rejected route of type '{entry_type}'. Expected 'car' or 'vehicle'.")
                 return
         elif actor_id_str.startswith('UAV'):
             if entry_type != 'drone':
-                print(f"Error: {actor_id_str} rejected route of type '{entry_type}'. Expected 'drone'.")
+                logging.error(f"{actor_id_str} rejected route of type '{entry_type}'. Expected 'drone'.")
                 return
         
         # 3. Mode Enforcement (Prioritize Replay if path is given)
         if entry.get('path') and entry.get('mode') != 'lead':
-            print(f"  [DEBUG] Forcing {actor_id_str} to 'lead' mode (Trajectory detected).")
+            logging.debug(f"Forcing {actor_id_str} to 'lead' mode (Trajectory detected).")
             entry['mode'] = 'lead'
         
         # Application of perspective presets
@@ -242,7 +248,7 @@ class AGCarlaGenerator:
             p_config['camera_offset_z'] = self.args.camera_offset_z
             
         entry['perspective_cfg'] = p_config
-        print(f"[DEBUG] Final Perspective for {actor_id_str}: {perspective_name} (Pitch: {p_config['camera_pitch']}, Offset: {p_config['height_offset']}m, CamPos: {p_config.get('camera_offset_x', 0)}, {p_config.get('camera_offset_y', 0)}, {p_config.get('camera_offset_z', 0)})")
+        logging.debug(f"Final Perspective for {actor_id_str}: {perspective_name} (Pitch: {p_config['camera_pitch']})")
 
         if actor_id_str == 'UGV_1':
             # Register the CARLA vehicle actor
@@ -252,7 +258,7 @@ class AGCarlaGenerator:
             entry['airsim_port'] = self.args.airsim_port # Pass port for background thread clients
             self.motion_manager.register_actor(None, entry['mode'], entry, vehicle_name=actor_id_str)
         else:
-            print(f"Warning: Actor ID '{actor_id_str}' in route not found in active simulation actors.")
+            logging.warning(f"Actor ID '{actor_id_str}' in route not found in active simulation actors.")
         
     def calibrate_global_offsets(self):
         """Calculates the translation offset between CARLA world origin and AirSim local origin."""
@@ -267,7 +273,7 @@ class AGCarlaGenerator:
                 break
         
         if not drone_actor:
-            print("Warning: Could not find AirSim drone in CARLA world. Offset defaulted to zero.")
+            logging.warning("Could not find AirSim drone in CARLA world. Offset defaulted to zero.")
             return {'x': 0.0, 'y': 0.0, 'z': 0.0}
             
         cl = drone_actor.get_location()
@@ -284,7 +290,7 @@ class AGCarlaGenerator:
     def setup_ugv(self):
         """Spawns the Lead UGV at a spawn point or its first recorded waypoint."""
         if self.args.no_ugv:
-            print("UGV spawning skipped via --no-ugv flag.")
+            logging.info("UGV spawning skipped via --no-ugv flag.")
             return
 
         bp = self.blueprint_library.filter('vehicle.tesla.model3')[0]
@@ -317,7 +323,7 @@ class AGCarlaGenerator:
                 carla.Rotation(yaw=wp['yaw'])
             )
             replaying = True
-            print(f"[DEBUG] Spawning UGV_1 at first waypoint: {wp['x']}, {wp['y']}")
+            logging.debug(f"Spawning UGV_1 at first waypoint: {wp['x']}, {wp['y']}")
 
         if not spawn_point:
             spawn_points = self.map.get_spawn_points()
@@ -328,17 +334,17 @@ class AGCarlaGenerator:
         
         # Initial tick to register transform in the world state
         self.world.tick()
-        print(f"Lead UGV Spawned at: {self.ugv.get_transform().location}")
+        logging.info(f"Lead UGV Spawned at: {self.ugv.get_transform().location}")
         
         if self.traffic_manager and not replaying:
             tm_port = self.traffic_manager.get_port()
             self.ugv.set_autopilot(True, tm_port)
-            print("UGV Autopilot active on TM port", tm_port)
+            logging.info(f"UGV Autopilot active on TM port {tm_port}")
         elif replaying:
-            print("UGV Autopilot skipped (Replay Mode active).")
+            logging.info("UGV Autopilot skipped (Replay Mode active).")
         elif not self.args.route:
             self.ugv.set_autopilot(True)
-            print("UGV Autopilot active on default TM port")
+            logging.info("UGV Autopilot active on default TM port")
         
         # Attach CARLA sensors to UGV (RGB, Lidar, Semantic)
         self.add_carla_sensor('sensor.camera.rgb', carla.Transform(carla.Location(x=1.6, z=1.7)), 'ugv_rgb')
@@ -380,7 +386,7 @@ class AGCarlaGenerator:
 
     def capture_frame(self, frame_id):
         """Captures synchronized data from 1 UGV and 5 UAVs using threaded synchronization."""
-        print(f"\n[TRACE] Starting Capture Frame {frame_id}")
+        logging.debug(f"Starting Capture Frame {frame_id}")
         
         # 1. Update Motion (Waypoints/Physics)
         if self.motion_manager:
@@ -393,7 +399,7 @@ class AGCarlaGenerator:
         ugv_yaw_rad = np.radians(ugv_transform.rotation.yaw) if ugv_transform else 0.0
         uav_futures = {}
         
-        print(f"[TRACE] Initiating {len(self.uav_names)} UAV requests...")
+        logging.debug(f"Initiating {len(self.uav_names)} UAV requests...")
         for i, uav_name in enumerate(self.uav_names):
             uav_client = self.uav_clients[uav_name]
             
@@ -432,9 +438,9 @@ class AGCarlaGenerator:
             ], vehicle_name=uav_name)
         
         # 3. Tick CARLA world
-        print("[TRACE] Ticking CARLA world (The Pulse)...")
+        logging.debug("Ticking CARLA world (The Pulse)...")
         frame = self.world.tick()
-        print(f"[TRACE] CARLA Tick successful (Frame: {frame})")
+        logging.debug(f"CARLA Tick successful (Frame: {frame})")
         
         # Stabilizing Sleep
         time.sleep(0.05)
@@ -458,19 +464,19 @@ class AGCarlaGenerator:
                 
                 if responses:
                     self.save_uav_data(frame_id, uav_name, responses)
-                    print(f"[TRACE] UAV data received for {uav_name}")
+                    logging.debug(f"UAV data received for {uav_name}")
                 else:
-                    print(f"Warning: No images received for {uav_name}")
+                    logging.warning(f"No images received for {uav_name}")
                 
                 time.sleep(0.1) # Small pacing between drone processing
             except Exception as e:
-                print(f"[TRACE] Error resolving UAV {uav_name}: {e}")
+                logging.debug(f"Error resolving UAV {uav_name}: {e}")
 
         # 4. Save UGV Data
         if self.args.no_ugv:
-            print("[TRACE] UGV capture skipped.")
+            logging.debug("UGV capture skipped.")
         else:
-            print("[TRACE] Retrieving UGV sensor data...")
+            logging.debug("Retrieving UGV sensor data...")
             try:
                 # RGB
                 image = self.sensor_queues['ugv_rgb'].get(timeout=5.0)
@@ -487,7 +493,7 @@ class AGCarlaGenerator:
                     npz_path = os.path.join(self.output_dir, 'gbuffer', f'ugv_{frame_id:06d}.npz')
                     np.savez_compressed(npz_path, SceneDepth=encoded, depth_linear=depth_linear)
                 except queue.Empty:
-                    print("Warning: UGV Depth data timed out.")
+                    logging.warning("UGV Depth data timed out.")
 
                 # Lidar
                 try:
@@ -497,11 +503,11 @@ class AGCarlaGenerator:
                     # Save as .npy
                     np.save(os.path.join(self.output_dir, 'lidar', f'ugv_{frame_id:06d}.npy'), points)
                 except queue.Empty:
-                    print("Warning: UGV Lidar data timed out.")
+                    logging.warning("UGV Lidar data timed out.")
 
-                print("[TRACE] UGV data received.")
+                logging.debug("UGV data received.")
             except Exception as e:
-                print(f"[TRACE] UGV Timeout or Error: {e}")
+                logging.debug(f"UGV Timeout or Error: {e}")
 
         # 5. Save Metadata
         self.recording[frame_id] = frame_transforms
@@ -510,7 +516,7 @@ class AGCarlaGenerator:
         # 6. Append to OpenLabel Manifest
         self.append_openlabel_frame(frame_id, frame_transforms)
         
-        print(f"[TRACE] Frame {frame_id} Complete")
+        logging.debug(f"Frame {frame_id} Complete")
     def save_uav_data(self, frame_id, uav_name, responses):
         gbuffer_bundle = {}
         for response in responses:
@@ -703,7 +709,7 @@ class AGCarlaGenerator:
 
     def finalize_manifest(self):
         """Consolidates .jsonl frames into a single master_manifest.json and generates global reconstruction."""
-        print("\nFinalizing OpenLABEL Manifest...")
+        logging.info("Finalizing OpenLABEL Manifest...")
         
         # 1. Generate Global Reconstruction (.ply)
         self.generate_global_reconstruction()
@@ -713,7 +719,7 @@ class AGCarlaGenerator:
         json_path = os.path.join(self.output_dir, 'master_manifest.json')
         
         if not os.path.exists(jsonl_path):
-            print("Warning: No manifest frames found to finalize.")
+            logging.warning("No manifest frames found to finalize.")
             return
 
         frames = {}
@@ -757,11 +763,11 @@ class AGCarlaGenerator:
         with open(json_path, 'w') as f:
             json.dump(master_data, f, indent=4)
         
-        print(f"Master manifest saved to: {json_path}")
+        logging.info(f"Master manifest saved to: {json_path}")
 
     def generate_global_reconstruction(self):
         """Merges all frame point clouds into a single global .ply file."""
-        print("Generating Global Reconstruction...")
+        logging.info("Generating Global Reconstruction...")
         maps_dir = os.path.join(self.output_dir, 'maps')
         os.makedirs(maps_dir, exist_ok=True)
         
@@ -798,26 +804,26 @@ class AGCarlaGenerator:
             full_cloud = np.concatenate(master_cloud, axis=0)
             # High-fidelity voxel downsampling (2cm grid)
             if len(full_cloud) > 100000:
-                print(f"  Refining cloud ({len(full_cloud)} points)...")
+                logging.info(f"  Refining cloud ({len(full_cloud)} points)...")
                 # 2cm grid = multiply by 50, round, divide by 50
                 full_cloud = np.unique(np.round(full_cloud * 50) / 50, axis=0)
             
             out_path = os.path.join(maps_dir, 'global_reconstruction.ply')
             GeometryUtils.save_ply(out_path, full_cloud)
-            print(f"  Reconstruction saved to: {out_path} ({len(full_cloud)} points)")
+            logging.info(f"  Reconstruction saved to: {out_path} ({len(full_cloud)} points)")
         else:
-            print("  Warning: No points found for reconstruction.")
+            logging.warning("  No points found for reconstruction.")
 
     def cleanup(self):
         """Safe cleanup of CARLA and AirSim actors."""
-        print("Cleaning up actors...")
+        logging.info("Cleaning up actors...")
         
         # 1. Restore CARLA settings (wrapped in try/except to avoid msgpack cast errors)
         try:
             if hasattr(self, 'original_settings'):
                 self.world.apply_settings(self.original_settings)
         except Exception as e:
-            print(f"  [DEBUG] Warning: Could not restore CARLA settings: {e}")
+            logging.debug(f"Could not restore CARLA settings: {e}")
 
         # 2. Stop and Destroy CARLA actors
         for actor in self.actor_list:
@@ -837,7 +843,7 @@ class AGCarlaGenerator:
                 client.enableApiControl(False, vehicle_name=name)
             except: pass
 
-        print("Done.")
+        logging.info("Cleanup Complete.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -868,7 +874,7 @@ if __name__ == "__main__":
     
     # Optional: Load from config file
     if args.config:
-        print(f"Loading configuration from {args.config}...")
+        logging.info(f"Loading configuration from {args.config}...")
         with open(args.config, 'r') as f:
             config_data = json.load(f)
             # Override args with config values
@@ -886,7 +892,7 @@ if __name__ == "__main__":
         gen.get_ray_map()
         for i in range(args.num_frames):
             gen.capture_frame(i)
-            print(f"Captured Frame {i}")
+            logging.info(f"Captured Frame {i}")
         
         # 4. Finalize
         gen.finalize_manifest()

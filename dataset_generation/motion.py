@@ -5,6 +5,8 @@ import sys
 import carla
 import airsim
 import time
+import logging
+
 from collections import deque
 
 # Add CARLA agents to path if not present (handled by CarlaAir environment usually)
@@ -18,7 +20,7 @@ try:
     from agents.navigation.local_planner import LocalPlanner, RoadOption
     from agents.navigation.controller import VehiclePIDController
 except ImportError as e:
-    print(f"Warning: Could not import CARLA agents from {AGENT_PATH}: {e}")
+    logging.warning(f"Could not import CARLA agents from {AGENT_PATH}: {e}")
     LocalPlanner = None
     LocalPlanner = None
 
@@ -76,7 +78,7 @@ class MotionManager:
             self.controllers[key] = FollowController(self.world, actor_id, config, uav_client, self.global_offset)
         
         self.history[key] = deque(maxlen=400) # 20 seconds at 20fps
-        print(f"[DEBUG] Registered {mode} actor: {key} (ID: {actor_id}) with {type(self.controllers[key]).__name__}")
+        logging.debug(f"Registered {mode} actor: {key} (ID: {actor_id}) with {type(self.controllers[key]).__name__}")
 
     def update(self, dt, viz=False):
         """Called before world.tick()"""
@@ -142,7 +144,7 @@ class PathController:
             # Diagnostic reporting
             if control.throttle > 0.01 or abs(control.steer) > 0.01:
                 loc = self.actor.get_location()
-                print(f"[DEBUG] UGV ID:{self.actor.id} | Pos:({loc.x:.1f},{loc.y:.1f}) | Throttle:{control.throttle:.2f} | Steer:{control.steer:.2f}")
+                logging.debug(f"UGV ID:{self.actor.id} | Pos:({loc.x:.1f},{loc.y:.1f}) | Throttle:{control.throttle:.2f} | Steer:{control.steer:.2f}")
                 
             return self.actor.get_transform()
         return None
@@ -266,7 +268,7 @@ class DronePathController:
         # Lazy Camera Setup (Happens after first world tick to avoid RPC hang)
         if not self.camera_setup_done and self.camera_pitch is not None:
             def apply_perspective():
-                print(f"  [DEBUG] [Thread] Applying perspective camera pitch {self.camera_pitch} to {self.vehicle_name}...")
+                logging.debug(f"Applying perspective camera pitch {self.camera_pitch} to {self.vehicle_name}...")
                 try:
                     # Create a dedicated temporary client for this thread to avoid BufferError
                     # from sharing a socket with the main thread's simSetVehiclePose call.
@@ -283,9 +285,9 @@ class DronePathController:
                         ), 
                         vehicle_name=self.vehicle_name
                     )
-                    print(f"  [DEBUG] [Thread] Perspective applied successfully (Offset: {self.camera_offset_x}, {self.camera_offset_y}, {self.camera_offset_z}).")
+                    logging.debug(f"Perspective applied successfully (Offset: {self.camera_offset_x}, {self.camera_offset_y}, {self.camera_offset_z}).")
                 except Exception as e:
-                    print(f"  [DEBUG] [Thread] Warning: Perspective failed: {e}")
+                    logging.warning(f"Perspective failed: {e}")
 
             # Run in thread to avoid blocking the main sync-tick loop (Deadlock Prevention)
             import threading
@@ -294,7 +296,7 @@ class DronePathController:
             
         wp = self.waypoints[self.current_idx]
         if self.current_idx % 20 == 0:
-            print(f"[DEBUG] DronePathController.step | Actor: {self.vehicle_name} | idx: {self.current_idx}/{len(self.waypoints)} | WP: {wp['x']:.1f}, {wp['y']:.1f}, {wp['z']:.1f}")
+            logging.debug(f"DronePathController.step | Actor: {self.vehicle_name} | idx: {self.current_idx}/{len(self.waypoints)} | WP: {wp['x']:.1f}, {wp['y']:.1f}, {wp['z']:.1f}")
         
         self.current_idx += 1 # 1:1 playback at 20Hz
         
