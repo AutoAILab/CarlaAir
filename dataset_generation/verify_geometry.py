@@ -123,7 +123,7 @@ def verify_frame_geometry(data_dir, frame_id=0):
                 h, w = depth_linear.shape
                 # IMPORTANT: CARLA Local Frame is Z-Up. Pinhole RayMap is Z-Down.
                 # Must flip Z before world transform.
-                ray_map = GeometryUtils.get_ray_map(w, h)
+                ray_map = GeometryUtils.get_ray_map(w, h, fov=110)
                 mask = (depth_linear > 0) & (depth_linear < 50.0)
                 p_local_depth = ray_map[mask] * depth_linear[mask][:, np.newaxis]
                 
@@ -134,9 +134,14 @@ def verify_frame_geometry(data_dir, frame_id=0):
                 p_world_depth = GeometryUtils.camera_to_world(p_actor_depth, meta['ugv'], is_airsim=False)
                 
                 if len(p_world_depth) > 0:
-                    d_mean = np.linalg.norm(np.mean(p_world_depth, axis=0) - np.mean(p_world_lidar, axis=0))
+                    # Sample a subset for faster distance calculation
+                    sample_indices = np.random.choice(len(p_world_depth), min(1000, len(p_world_depth)), replace=False)
+                    p_sample_depth = p_world_depth[sample_indices]
+                    
+                    # Compute mean offset between centroids of ground points
+                    d_mean = np.linalg.norm(np.mean(p_sample_depth, axis=0) - np.mean(p_world_lidar, axis=0))
                     print(f"  Cloud-to-Lidar Mean Offset: {d_mean:.4f}m")
-                    if d_mean < 2.0:
+                    if d_mean < 0.1: # 10cm tolerance for high-fidelity alignment
                         print("  PASS: Depth-to-Lidar alignment verified.")
                     else:
                         print("  FAIL: Significant Depth-to-Lidar drift.")

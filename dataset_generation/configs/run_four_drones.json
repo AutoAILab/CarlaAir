@@ -1,0 +1,16 @@
+{
+    "uav_names": ["UAV_1", "UAV_2", "UAV_3", "UAV_4"],
+    "route_map": {
+        "UGV_1": "dataset_generation/trajectories/route_ugv_only_20260417_172852.json"
+    },
+    "swarm_config": {
+        "UAV_1": [10, 10, -25],
+        "UAV_2": [15, 12, -45],
+        "UAV_3": [35, 12, -45],
+        "UAV_4": [55, 12, -45]
+    },
+    "fixed_dt": 0.05,
+    "no_uavs": false,
+    "no_ugv": false,
+    "out": "data/swarm_test"
+}

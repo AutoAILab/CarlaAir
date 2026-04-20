@@ -119,6 +119,7 @@ class AGCarlaGenerator:
         self.actor_list = []
         self.sensor_queues = {}
         self.ugv = None
+        self.ugv_sensors = {} # Sensor ID -> Sensor Actor
         
         # Directories
         self.output_dir = os.path.join(args.out, datetime.now().strftime("%Y%m%d_%H%M%S"))
@@ -136,12 +137,18 @@ class AGCarlaGenerator:
         
         # Swarm Offsets Configuration (Height, HorizontalBackOffset, PitchDeg)
         self.swarm_config = {
-            'UAV_1': (15, 12, -30),
-            'UAV_2': (30, 12, -45),
-            'UAV_3': (45, 12, -60),
-            'UAV_4': (60, 12, -75),
+            'UAV_1': (10, 10, -25),
+            'UAV_2': (15, 12, -45),
+            'UAV_3': (35, 12, -45),
+            'UAV_4': (55, 12, -45),
             'UAV_5': (90, 0, -90)
         }
+        
+        # Override with JSON configuration if provided
+        if hasattr(args, 'swarm_config') and args.swarm_config is not None:
+            # Reformat JSON list lists to tuples for correct variable unpacking
+            for uav_name, config_vars in args.swarm_config.items():
+                self.swarm_config[uav_name] = tuple(config_vars)
 
     def load_route(self, route_path):
         """Loads route JSON data for later registration."""
@@ -152,7 +159,7 @@ class AGCarlaGenerator:
     def register_route_actors(self):
         """Registers and spawns actors defined in the route data or route map."""
         # 1. Process Route Map (Explicit Actor -> File mapping)
-        mapped_actors = []
+        self.routed_actors = set()
         if self.args.route_map:
             print(f"Loading actors from route_map...")
             for actor_id_str, route_path in self.args.route_map.items():
@@ -167,7 +174,7 @@ class AGCarlaGenerator:
                             # Override ID to match the map key if it's the only one
                             entry['id'] = actor_id_str 
                             self._register_single_actor(entry)
-                            mapped_actors.append(actor_id_str)
+                            self.routed_actors.add(actor_id_str)
                             found = True
                             break
                     if not found:
@@ -179,9 +186,10 @@ class AGCarlaGenerator:
         if hasattr(self, 'route_data') and self.route_data:
             for entry in self.route_data:
                 actor_id_str = entry['id']
-                if actor_id_str in mapped_actors:
+                if actor_id_str in self.routed_actors:
                     continue # Already registered via map
                 self._register_single_actor(entry)
+                self.routed_actors.add(actor_id_str)
 
     def _register_single_actor(self, entry):
         """Internal helper to register a single actor entry from route data."""
@@ -356,6 +364,7 @@ class AGCarlaGenerator:
         sensor.listen(lambda data: self.on_carla_sensor_data(sensor_id, data))
         self.actor_list.append(sensor)
         self.sensor_queues[sensor_id] = q
+        self.ugv_sensors[sensor_id] = sensor
 
         # G-Buffer Listeners Disabled (Unstable in current headless setup)
         # if sensor_id == 'ugv_rgb' and hasattr(sensor, 'listen_to_gbuffer'):
@@ -388,8 +397,9 @@ class AGCarlaGenerator:
         for i, uav_name in enumerate(self.uav_names):
             uav_client = self.uav_clients[uav_name]
             
-            # 2a. Manual Swarm Chase (Legacy/Record Mode only - Skip if using waypoint-based route)
-            if self.args.mode == 'record' and not (self.args.route or self.args.route_map):
+            # 2a. Swarm Chase logic: Trigger if actor is NOT in replay mode (no route assigned)
+            actor_has_route = hasattr(self, 'routed_actors') and uav_name in self.routed_actors
+            if not actor_has_route:
                 # Get swarm configuration for this drone
                 # Fallback to defaults if name not in config mapping
                 height, back_offset, pitch_deg = self.swarm_config.get(uav_name, (30, 12, -45))
@@ -412,17 +422,16 @@ class AGCarlaGenerator:
                 
                 uav_client.simSetVehiclePose(airsim.Pose(target_pos_world, target_orient), True, vehicle_name=uav_name)
             
-            # Start parallel capture using the DEDICATED client for this drone
-            requests = [
-                airsim.ImageRequest("0", airsim.ImageType.Scene),
+        # 2. Trigger Capture requests for UAVs (AirSim)
+        uav_futures = {}
+        for uav_name, client in self.uav_clients.items():
+            uav_futures[uav_name] = self.executor.submit(client.simGetImages, [
+                airsim.ImageRequest("0", airsim.ImageType.Scene, False, True),
                 airsim.ImageRequest("0", airsim.ImageType.DepthPlanar, True),
-                airsim.ImageRequest("0", airsim.ImageType.Segmentation)
-            ]
-            future = self.executor.submit(uav_client.simGetImages, requests, vehicle_name=uav_name)
-            uav_futures[uav_name] = future
-
-        # 2. Tick CARLA (The "Pulse")
-        # This advance triggers the renderer cycle needed by effectively all headless simulators.
+                airsim.ImageRequest("0", airsim.ImageType.Segmentation, False, True)
+            ], vehicle_name=uav_name)
+        
+        # 3. Tick CARLA world
         print("[TRACE] Ticking CARLA world (The Pulse)...")
         frame = self.world.tick()
         print(f"[TRACE] CARLA Tick successful (Frame: {frame})")
@@ -430,13 +439,16 @@ class AGCarlaGenerator:
         # Stabilizing Sleep
         time.sleep(0.05)
         
-        # 3. Resolve UAV Data
+        # 1. Capture Transforms AFTER the tick (Matching sensor state)
+        ugv_tf = self.ugv.get_transform()
         frame_transforms = {
-            'ugv': self.get_transform_dict(ugv_transform) if ugv_transform else {},
+            'ugv': self.get_transform_dict(ugv_tf),
             'npcs': self.get_npc_transforms(),
-            'uavs': {}
+            'uavs': {},
+            'sensor_tf': {sid: self.get_transform_dict(s.get_transform()) for sid, s in self.ugv_sensors.items() if s.is_alive}
         }
         
+        # 4. Resolve UAV Data
         for uav_name, future in uav_futures.items():
             try:
                 responses = future.result(timeout=30.0)
@@ -762,7 +774,7 @@ class AGCarlaGenerator:
             meta = self.recording[frame_id]
             global_offset = self.global_offset
             
-            # A. UGV Lidar (More accurate than depth)
+            # UGV Lidar is the sole source for the global reconstruction map
             lidar_path = os.path.join(self.output_dir, 'lidar', f'ugv_{frame_id:06d}.npy')
             if os.path.exists(lidar_path):
                 pts = np.load(lidar_path)[:, :3]
@@ -771,29 +783,16 @@ class AGCarlaGenerator:
                 dist_to_sensor = np.linalg.norm(pts, axis=1)
                 pts = pts[dist_to_sensor > 3.0]
                 
-                # CARLA Lidar is mounted at Z=2.5, but points are relative to sensor
-                # We need to add mount offset before world transform
-                p_actor = pts + np.array([0, 0, 2.5])
-                p_world = GeometryUtils.camera_to_world(p_actor, meta['ugv'], is_airsim=False)
+                # Use Absolute Sensor Transform (Engine-Truth) for world projection
+                sensor_tf = meta.get('sensor_tf', {}).get('ugv_lidar')
+                if sensor_tf:
+                    p_world = GeometryUtils.camera_to_world(pts, sensor_tf, is_airsim=False)
+                else:
+                    # Fallback to actor + manual offset if metadata is legacy
+                    p_actor = pts + np.array([0, 0, 2.5])
+                    p_world = GeometryUtils.camera_to_world(p_actor, meta['ugv'], is_airsim=False)
+                
                 master_cloud.append(p_world)
-
-            # B. UAV Depth (Aerial coverage)
-            for uav_name in meta['uavs'].keys():
-                uav_gb_path = os.path.join(self.output_dir, 'gbuffer', f'{uav_name}_{frame_id:06d}.npz')
-                if os.path.exists(uav_gb_path):
-                    uav_gb = np.load(uav_gb_path)
-                    depth = uav_gb['depth']
-                    h, w = depth.shape
-                    # Filter far points for clean map
-                    mask = (depth > 2.0) & (depth < 60.0)
-                    if not np.any(mask): continue
-                    
-                    ray_map = GeometryUtils.get_ray_map(w, h)
-                    p_local = ray_map[mask] * depth[mask][:, np.newaxis]
-                    p_actor_mounted = p_local + np.array([0.5, 0, 0.1])
-                    p_world = GeometryUtils.camera_to_world(p_actor_mounted, meta['uavs'][uav_name], 
-                                                           is_airsim=True, global_offset=global_offset)
-                    master_cloud.append(p_world)
 
         if master_cloud:
             full_cloud = np.concatenate(master_cloud, axis=0)
@@ -874,10 +873,8 @@ if __name__ == "__main__":
             config_data = json.load(f)
             # Override args with config values
             for key, value in config_data.items():
-                if hasattr(args, key):
-                    setattr(args, key, value)
-                else:
-                    print(f"Warning: Configuration key '{key}' not recognized.")
+                # Allow arbitrary JSON keys (like swarm_config) to pass through to args
+                setattr(args, key, value)
     
     gen = AGCarlaGenerator(args)
     try:

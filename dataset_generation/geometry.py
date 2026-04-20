@@ -10,7 +10,8 @@ class GeometryUtils:
         x = np.arange(width)
         y = np.arange(height)
         xx, yy = np.meshgrid(x, y)
-        # AirSim/NED Local Camera Frame: X=Forward, Y=Right, Z=Down
+        
+        # CARLA Local Camera Frame: X=Forward, Y=Right, Z=Down (Before flip)
         rays = np.stack([np.full_like(xx, f), xx - width/2.0, yy - height/2.0], axis=-1)
         rays /= np.linalg.norm(rays, axis=-1, keepdims=True)
         return rays.astype(np.float32)
@@ -37,19 +38,27 @@ class GeometryUtils:
         y = np.radians(yaw_deg)
         r = np.radians(roll_deg)
         
+        p, y, r = np.radians([pitch_deg, yaw_deg, roll_deg])
+        
+        # Standard Right-Handed (Counter-Clockwise) rotation matrices
+        # Order: Yaw (Z), then Pitch (Y), then Roll (X)
+        
+        # Roll (X)
         R_x = np.array([[1, 0, 0],
                         [0, np.cos(r), -np.sin(r)],
                         [0, np.sin(r), np.cos(r)]])
         
+        # Pitch (Y)
         R_y = np.array([[np.cos(p), 0, np.sin(p)],
                         [0, 1, 0],
                         [-np.sin(p), 0, np.cos(p)]])
         
+        # Yaw (Z)
         R_z = np.array([[np.cos(y), -np.sin(y), 0],
                         [np.sin(y), np.cos(y), 0],
                         [0, 0, 1]])
         
-        # Order for CARLA: Yaw -> Pitch -> Roll (Z * Y * X)
+        # Final Rotation: Z * Y * X
         return R_z @ R_y @ R_x
 
     @staticmethod
@@ -57,7 +66,8 @@ class GeometryUtils:
         """Converts CARLA Euler angles to a unit quaternion [qw, qx, qy, qz]."""
         # scipy uses [x, y, z, w] order for its internal representation
         # CARLA uses (intrinsic) rotations: Yaw(Z), then Pitch(Y), then Roll(X)
-        rot = R.from_euler('zyx', [yaw, pitch, roll], degrees=True)
+        # To convert CARLA Euler (Clockwise) to Scipy (Counter-Clockwise), we negate
+        rot = R.from_euler('zyx', [-yaw, -pitch, -roll], degrees=True)
         quat = rot.as_quat() # returns [qx, qy, qz, qw]
         return [quat[3], quat[0], quat[1], quat[2]]
 
